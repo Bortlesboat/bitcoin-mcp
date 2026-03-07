@@ -1,5 +1,6 @@
-"""Bitcoin MCP Server — 32 tools for AI agents to query Bitcoin nodes."""
+"""Bitcoin MCP Server — 35 tools for AI agents to query Bitcoin nodes."""
 
+import argparse
 import json
 import logging
 import os
@@ -34,12 +35,28 @@ mcp = FastMCP(
 _rpc: BitcoinRPC | None = None
 
 
+NETWORK_PORTS = {
+    "mainnet": 8332,
+    "testnet": 18332,
+    "signet": 38332,
+    "regtest": 18443,
+}
+
+
+def _default_port() -> int:
+    """Return the default RPC port based on BITCOIN_NETWORK env var."""
+    network = os.getenv("BITCOIN_NETWORK", "mainnet").lower()
+    return NETWORK_PORTS.get(network, 8332)
+
+
 def get_rpc() -> BitcoinRPC:
     global _rpc
     if _rpc is None:
+        port_str = os.getenv("BITCOIN_RPC_PORT")
+        port = int(port_str) if port_str else _default_port()
         _rpc = BitcoinRPC(
             host=os.getenv("BITCOIN_RPC_HOST", "127.0.0.1"),
-            port=int(os.getenv("BITCOIN_RPC_PORT", "8332")),
+            port=port,
             user=os.getenv("BITCOIN_RPC_USER"),
             password=os.getenv("BITCOIN_RPC_PASSWORD"),
             datadir=os.getenv("BITCOIN_DATADIR"),
@@ -245,7 +262,7 @@ def get_mempool_ancestors(txid: str) -> str:
 
 
 # ============================================================
-# TRANSACTIONS (3 tools)
+# TRANSACTIONS (4 tools)
 # ============================================================
 
 
@@ -283,6 +300,24 @@ def check_utxo(txid: str, vout: int) -> str:
     if result is None:
         return json.dumps({"spent": True, "message": "Output is spent or does not exist"})
     return json.dumps({"spent": False, "utxo": result}, indent=2)
+
+
+@mcp.tool()
+def send_raw_transaction(hex_string: str, max_fee_rate: float = 0.10) -> str:
+    """Broadcast a signed raw transaction to the Bitcoin network.
+
+    WARNING: This sends a REAL transaction. Once broadcast, it cannot be reversed.
+    Ensure the transaction is correctly signed and you understand the fee implications.
+
+    Args:
+        hex_string: Signed raw transaction in hex format
+        max_fee_rate: Maximum fee rate in BTC/kvB to prevent accidental overpayment (default 0.10)
+    """
+    try:
+        txid = get_rpc().sendrawtransaction(hex_string, max_fee_rate)
+        return json.dumps({"txid": txid, "broadcast": True}, indent=2)
+    except Exception as e:
+        return json.dumps({"error": str(e), "broadcast": False})
 
 
 # ============================================================
@@ -623,8 +658,148 @@ def compare_blocks(height1: int, height2: int) -> str:
 
 
 # ============================================================
+# LIGHTNING (1 tool)
+# ============================================================
+
+
+@mcp.tool()
+def decode_bolt11_invoice(invoice: str) -> str:
+    """Decode a BOLT11 Lightning invoice without external dependencies.
+
+    Parses the human-readable part to extract network, amount, and timestamp.
+    Does NOT verify the signature or parse tagged fields beyond basic extraction.
+
+    Args:
+        invoice: BOLT11 payment request string (starts with lnbc, lntb, or lnbcrt)
+    """
+    invoice = invoice.strip().lower()
+    # Validate prefix
+    if not invoice.startswith("ln"):
+        return json.dumps({"error": "Not a BOLT11 invoice (must start with 'ln')"})
+
+    # Find the last '1' separator between human-readable part and data
+    sep_idx = invoice.rfind("1")
+    if sep_idx < 2:
+        return json.dumps({"error": "Invalid BOLT11 format: no separator found"})
+
+    hrp = invoice[:sep_idx]
+    data_part = invoice[sep_idx + 1:]
+
+    # Parse network prefix
+    if hrp.startswith("lnbcrt"):
+        network = "regtest"
+        amount_str = hrp[6:]
+    elif hrp.startswith("lntbs"):
+        network = "signet"
+        amount_str = hrp[5:]
+    elif hrp.startswith("lntb"):
+        network = "testnet"
+        amount_str = hrp[4:]
+    elif hrp.startswith("lnbc"):
+        network = "mainnet"
+        amount_str = hrp[4:]
+    else:
+        network = "unknown"
+        amount_str = ""
+
+    # Parse amount with multiplier
+    amount_btc = None
+    multipliers = {"m": 0.001, "u": 0.000001, "n": 0.000000001, "p": 0.000000000001}
+    if amount_str:
+        if amount_str[-1] in multipliers:
+            try:
+                amount_btc = float(amount_str[:-1]) * multipliers[amount_str[-1]]
+            except ValueError:
+                amount_btc = None
+        else:
+            try:
+                amount_btc = float(amount_str)
+            except ValueError:
+                amount_btc = None
+
+    # Decode timestamp from data part using bech32 charset
+    bech32_charset = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+    charset_map = {c: i for i, c in enumerate(bech32_charset)}
+    timestamp = None
+    if len(data_part) >= 7:
+        try:
+            # First 7 chars of data = 35-bit timestamp
+            ts_val = 0
+            for ch in data_part[:7]:
+                ts_val = ts_val * 32 + charset_map[ch]
+            timestamp = ts_val
+        except (KeyError, ValueError):
+            timestamp = None
+
+    result = {
+        "network": network,
+        "hrp": hrp,
+        "amount_btc": amount_btc,
+        "amount_sats": round(amount_btc * 1e8) if amount_btc is not None else None,
+        "timestamp": timestamp,
+        "data_length": len(data_part),
+    }
+    return json.dumps(result, indent=2)
+
+
+# ============================================================
 # RESOURCES (static data endpoints)
 # ============================================================
+
+
+def _connection_hint(error: Exception) -> str:
+    """Return human-readable troubleshooting tips for common RPC errors."""
+    msg = str(error).lower()
+    if isinstance(error, ConnectionRefusedError) or "connection refused" in msg:
+        return (
+            "Connection refused. Check that Bitcoin Core is running and RPC is enabled. "
+            "Verify BITCOIN_RPC_HOST and BITCOIN_RPC_PORT are correct. "
+            "Ensure 'server=1' is set in bitcoin.conf."
+        )
+    if "401" in msg or "unauthorized" in msg or "authentication" in msg:
+        return (
+            "Authentication failed. Check BITCOIN_RPC_USER and BITCOIN_RPC_PASSWORD, "
+            "or ensure BITCOIN_DATADIR points to the correct directory for cookie auth."
+        )
+    if "403" in msg or "forbidden" in msg:
+        return (
+            "Access forbidden. Check rpcallowip in bitcoin.conf if connecting remotely."
+        )
+    if isinstance(error, TimeoutError) or "timeout" in msg or "timed out" in msg:
+        return (
+            "Connection timed out. The node may be starting up, syncing, or unreachable. "
+            "Check network connectivity and firewall rules."
+        )
+    if "name or service not known" in msg or "getaddrinfo" in msg:
+        return (
+            "Host not found. Check that BITCOIN_RPC_HOST is a valid hostname or IP address."
+        )
+    return f"Unexpected error: {error}. Check your RPC configuration and node status."
+
+
+@mcp.resource("bitcoin://connection/status")
+def resource_connection_status() -> str:
+    """Connection status: host, port, network, and whether the node is reachable."""
+    network = os.getenv("BITCOIN_NETWORK", "mainnet").lower()
+    port_str = os.getenv("BITCOIN_RPC_PORT")
+    port = int(port_str) if port_str else NETWORK_PORTS.get(network, 8332)
+    host = os.getenv("BITCOIN_RPC_HOST", "127.0.0.1")
+    info = {
+        "host": host,
+        "port": port,
+        "network": network,
+        "connected": False,
+    }
+    try:
+        rpc = get_rpc()
+        chain_info = rpc.getblockchaininfo()
+        info["connected"] = True
+        info["chain"] = chain_info.get("chain")
+        info["blocks"] = chain_info.get("blocks")
+    except Exception as e:
+        info["error"] = str(e)
+        info["hint"] = _connection_hint(e)
+    return json.dumps(info, indent=2)
 
 
 @mcp.resource("bitcoin://node/status")
@@ -838,6 +1013,25 @@ if _satoshi_api_url:
 
 
 def main():
+    from bitcoin_mcp import __version__
+
+    parser = argparse.ArgumentParser(description="Bitcoin MCP Server")
+    parser.add_argument("--version", action="version", version=f"bitcoin-mcp {__version__}")
+    parser.add_argument("--check", action="store_true", help="Test RPC connection and exit")
+    args = parser.parse_args()
+
+    if args.check:
+        try:
+            rpc = get_rpc()
+            info = rpc.getblockchaininfo()
+            print(f"Connected to {info.get('chain', 'unknown')} chain at height {info.get('blocks', '?')}")
+        except Exception as e:
+            print(f"Connection failed: {e}")
+            hint = _connection_hint(e)
+            print(f"Hint: {hint}")
+            sys.exit(1)
+        return
+
     logger.info("Starting Bitcoin MCP server...")
     mcp.run()
 

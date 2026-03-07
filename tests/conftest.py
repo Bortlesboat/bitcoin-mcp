@@ -166,6 +166,9 @@ class MockRPC:
     def decodescript(self, hex_script):
         return {"asm": "OP_DUP OP_HASH160 abc123 OP_EQUALVERIFY OP_CHECKSIG", "type": "pubkeyhash"}
 
+    def sendrawtransaction(self, hex_string, max_fee_rate=0.10):
+        return "abcdef1234567890" * 4
+
     def scantxoutset(self, action, descriptors):
         return {
             "success": True,

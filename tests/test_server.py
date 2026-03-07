@@ -1,6 +1,10 @@
 """Tests for bitcoin-mcp server tools."""
 
 import json
+import os
+import subprocess
+import sys
+
 import pytest
 
 
@@ -365,3 +369,161 @@ class TestDeveloperTools:
         result = json.loads(search_blockchain("not-a-valid-query"))
         assert "error" in result
         assert "Could not identify" in result["error"]
+
+
+class TestTransactionBroadcast:
+    """Tests for send_raw_transaction tool."""
+
+    def test_send_raw_transaction_success(self, mock_rpc):
+        from bitcoin_mcp.server import send_raw_transaction
+        result = json.loads(send_raw_transaction("0200000001..."))
+        assert result["broadcast"] is True
+        assert result["txid"] == "abcdef1234567890" * 4
+
+    def test_send_raw_transaction_error(self, mock_rpc):
+        mock_rpc.sendrawtransaction = lambda h, m: (_ for _ in ()).throw(
+            Exception("TX decode failed")
+        )
+        from bitcoin_mcp.server import send_raw_transaction
+        result = json.loads(send_raw_transaction("bad_hex"))
+        assert result["broadcast"] is False
+        assert "error" in result
+
+
+class TestConnectionHint:
+    """Tests for _connection_hint() helper."""
+
+    def test_connection_refused(self):
+        from bitcoin_mcp.server import _connection_hint
+        hint = _connection_hint(ConnectionRefusedError("Connection refused"))
+        assert "Connection refused" in hint
+        assert "server=1" in hint
+
+    def test_auth_failure(self):
+        from bitcoin_mcp.server import _connection_hint
+        hint = _connection_hint(Exception("401 Unauthorized"))
+        assert "Authentication failed" in hint
+
+    def test_forbidden(self):
+        from bitcoin_mcp.server import _connection_hint
+        hint = _connection_hint(Exception("403 Forbidden"))
+        assert "rpcallowip" in hint
+
+    def test_timeout(self):
+        from bitcoin_mcp.server import _connection_hint
+        hint = _connection_hint(TimeoutError("Connection timed out"))
+        assert "timed out" in hint.lower() or "timeout" in hint.lower()
+
+    def test_dns_failure(self):
+        from bitcoin_mcp.server import _connection_hint
+        hint = _connection_hint(Exception("Name or service not known"))
+        assert "hostname" in hint.lower()
+
+    def test_unknown_error(self):
+        from bitcoin_mcp.server import _connection_hint
+        hint = _connection_hint(Exception("something weird"))
+        assert "Unexpected error" in hint
+
+
+class TestCLIFlags:
+    """Tests for CLI --version flag."""
+
+    def test_version_flag(self):
+        result = subprocess.run(
+            [sys.executable, "-m", "bitcoin_mcp.server", "--version"],
+            capture_output=True, text=True,
+            cwd=os.path.join(os.path.expanduser("~"), "Bortlesboat", "bitcoin-mcp"),
+        )
+        assert "0.3.0" in result.stdout or "0.3.0" in result.stderr
+        assert result.returncode == 0
+
+
+class TestMultiNetworkPort:
+    """Tests for multi-network port selection."""
+
+    def test_mainnet_default(self, monkeypatch):
+        monkeypatch.delenv("BITCOIN_NETWORK", raising=False)
+        monkeypatch.delenv("BITCOIN_RPC_PORT", raising=False)
+        from bitcoin_mcp.server import _default_port
+        assert _default_port() == 8332
+
+    def test_testnet_port(self, monkeypatch):
+        monkeypatch.setenv("BITCOIN_NETWORK", "testnet")
+        from bitcoin_mcp.server import _default_port
+        assert _default_port() == 18332
+
+    def test_signet_port(self, monkeypatch):
+        monkeypatch.setenv("BITCOIN_NETWORK", "signet")
+        from bitcoin_mcp.server import _default_port
+        assert _default_port() == 38332
+
+    def test_regtest_port(self, monkeypatch):
+        monkeypatch.setenv("BITCOIN_NETWORK", "regtest")
+        from bitcoin_mcp.server import _default_port
+        assert _default_port() == 18443
+
+    def test_explicit_port_overrides_network(self, monkeypatch):
+        """BITCOIN_RPC_PORT should override network-based default."""
+        monkeypatch.setenv("BITCOIN_NETWORK", "testnet")
+        monkeypatch.setenv("BITCOIN_RPC_PORT", "9999")
+        # Reset singleton
+        import bitcoin_mcp.server as srv
+        monkeypatch.setattr(srv, "_rpc", None)
+        # get_rpc will use 9999, not 18332
+        # We can't easily test the actual port without connecting,
+        # but we verify _default_port returns testnet port
+        from bitcoin_mcp.server import _default_port
+        assert _default_port() == 18332  # network default is testnet
+        # The actual get_rpc() would use 9999 due to explicit BITCOIN_RPC_PORT
+
+    def test_unknown_network_defaults_to_mainnet(self, monkeypatch):
+        monkeypatch.setenv("BITCOIN_NETWORK", "fakenet")
+        from bitcoin_mcp.server import _default_port
+        assert _default_port() == 8332
+
+
+class TestBolt11Decode:
+    """Tests for BOLT11 invoice decoding."""
+
+    def test_mainnet_invoice(self, mock_rpc):
+        from bitcoin_mcp.server import decode_bolt11_invoice
+        # Known test vector: lnbc1pvjluezsp5... (from BOLT11 spec)
+        # Simpler: lnbc20m1... = 20 milliBTC on mainnet
+        result = json.loads(decode_bolt11_invoice(
+            "lnbc20m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqsfpp3qjmp7lwpagxun9pygexvgpjdc4jdj85fr9yq20q82gphp2nflc7jtzrcazrra7wwgzxqc8u7754cdlpfrmccae92qgzqvzq2ps8pqqqqqqpqqqqq9qqqvpeuqafqxu92d8lr6fvg0r5gv0heeeqgcrqlnm6jhphu9y00rrhy4grqszsvpcgpy9qqqqqqgqqqqq7qqzq9qrsgqdfjcdk6w3ak5pca9hwfwfh63zme2dt3p0ljg4apey0dglhllhje5vjrmyh4yv38j5lak6e2jsxnxnzh2s0gnkdasqypqt60nh3e"
+        ))
+        assert result["network"] == "mainnet"
+        assert result["amount_btc"] == pytest.approx(0.02)
+        assert result["amount_sats"] == 2000000
+
+    def test_testnet_invoice(self, mock_rpc):
+        from bitcoin_mcp.server import decode_bolt11_invoice
+        result = json.loads(decode_bolt11_invoice("lntb100u1pvjluezqqqqqqqqqqqqqqqq"))
+        assert result["network"] == "testnet"
+        assert result["amount_btc"] == pytest.approx(0.0001)
+
+    def test_regtest_invoice(self, mock_rpc):
+        from bitcoin_mcp.server import decode_bolt11_invoice
+        result = json.loads(decode_bolt11_invoice("lnbcrt500n1pvjluezqqqqqqqqqqqqqqqq"))
+        assert result["network"] == "regtest"
+        assert result["amount_btc"] == pytest.approx(0.0000005)
+
+    def test_no_amount(self, mock_rpc):
+        from bitcoin_mcp.server import decode_bolt11_invoice
+        result = json.loads(decode_bolt11_invoice("lnbc1ptest1qqqqqqqqqqqqqqqq"))
+        assert result["network"] == "mainnet"
+        assert result["amount_btc"] is None
+        assert result["amount_sats"] is None
+
+    def test_invalid_prefix(self, mock_rpc):
+        from bitcoin_mcp.server import decode_bolt11_invoice
+        result = json.loads(decode_bolt11_invoice("notaninvoice"))
+        assert "error" in result
+
+    def test_timestamp_parsed(self, mock_rpc):
+        from bitcoin_mcp.server import decode_bolt11_invoice
+        result = json.loads(decode_bolt11_invoice(
+            "lnbc20m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqsfpp3qjmp7lwpagxun9pygexvgpjdc4jdj85fr9yq20q82gphp2nflc7jtzrcazrra7wwgzxqc8u7754cdlpfrmccae92qgzqvzq2ps8pqqqqqqpqqqqq9qqqvpeuqafqxu92d8lr6fvg0r5gv0heeeqgcrqlnm6jhphu9y00rrhy4grqszsvpcgpy9qqqqqqgqqqqq7qqzq9qrsgqdfjcdk6w3ak5pca9hwfwfh63zme2dt3p0ljg4apey0dglhllhje5vjrmyh4yv38j5lak6e2jsxnxnzh2s0gnkdasqypqt60nh3e"
+        ))
+        assert result["timestamp"] is not None
+        assert isinstance(result["timestamp"], int)

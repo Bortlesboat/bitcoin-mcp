@@ -1,0 +1,36 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      BITCOIN_RPC_HOST:
+        type: string
+        default: "127.0.0.1"
+        description: "Bitcoin Core RPC host"
+      BITCOIN_RPC_PORT:
+        type: string
+        default: "8332"
+        description: "Bitcoin Core RPC port"
+      BITCOIN_RPC_USER:
+        type: string
+        description: "Bitcoin Core RPC username"
+      BITCOIN_RPC_PASSWORD:
+        type: string
+        description: "Bitcoin Core RPC password"
+      BITCOIN_DATADIR:
+        type: string
+        description: "Bitcoin data directory (for cookie auth)"
+      BITCOIN_NETWORK:
+        type: string
+        default: "mainnet"
+        description: "Bitcoin network (mainnet/testnet/signet/regtest)"
+      SATOSHI_API_URL:
+        type: string
+        description: "Remote Satoshi API URL (no node needed)"
+  commandFunction: |-
+    (config) => ({
+      command: 'bitcoin-mcp',
+      env: Object.fromEntries(
+        Object.entries(config).filter(([_, v]) => v != null && v !== '')
+      )
+    })

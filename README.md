@@ -1,15 +1,28 @@
 # bitcoin-mcp
 
-<!-- mcp-name: io.github.bortlesboat/bitcoin-mcp -->
+<!-- mcp-name: io.github.Bortlesboat/bitcoin-mcp -->
 
 [![PyPI](https://img.shields.io/pypi/v/bitcoin-mcp)](https://pypi.org/project/bitcoin-mcp/)
+[![MCP Registry](https://img.shields.io/badge/MCP-Registry-blue)](https://github.com/modelcontextprotocol/servers)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-42%20passed-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-63%20passed-brightgreen)](tests/)
 
-MCP server for Bitcoin Core/Knots nodes. **32 tools, 6 prompts, 6 resources** for AI agents to query the blockchain, analyze mempool fee markets, decode transactions, inspect mining economics, and explore the protocol.
+MCP server for Bitcoin Core/Knots nodes. **35 tools, 6 prompts, 7 resources** for AI agents to query the blockchain, analyze mempool fee markets, decode transactions, broadcast transactions, decode Lightning invoices, inspect mining economics, and explore the protocol.
 
 Runs against **your local node** — no API keys, no rate limits, no third-party dependencies.
+
+**The only Bitcoin MCP server on the [official Anthropic MCP Registry](https://github.com/modelcontextprotocol/servers).**
+
+## No Node? No Problem
+
+Point at a hosted [Satoshi API](https://bitcoinsapi.com) instance instead of running your own node:
+
+```bash
+SATOSHI_API_URL=https://bitcoinsapi.com bitcoin-mcp
+```
+
+This adds a `query_remote_api` tool that proxies requests through the REST API, with optional L402 Lightning micropayments.
 
 ## 60-Second Quickstart
 
@@ -45,9 +58,11 @@ BITCOIN_RPC_PORT=8332
 BITCOIN_RPC_USER=myuser
 BITCOIN_RPC_PASSWORD=mypassword
 BITCOIN_DATADIR=E:/
+BITCOIN_NETWORK=mainnet          # mainnet (default) | testnet | signet | regtest
+SATOSHI_API_URL=https://bitcoinsapi.com  # optional: use remote API instead of local node
 ```
 
-## 32 Tools
+## 35 Tools
 
 ### Node & Network (3)
 | Tool | Description |
@@ -74,11 +89,12 @@ BITCOIN_DATADIR=E:/
 | `get_mempool_info` | Quick stats: count, bytes, min relay fee |
 | `get_mempool_ancestors` | Ancestor transactions for CPFP analysis |
 
-### Transactions (3)
+### Transactions (4)
 | Tool | Description |
 |------|-------------|
 | `analyze_transaction` | Full decode + inscription detection + fee analysis |
 | `decode_raw_transaction` | Decode raw hex without input lookup |
+| `send_raw_transaction` | Broadcast a signed transaction (with fee safety limit) |
 | `check_utxo` | Check if a specific output is unspent |
 
 ### Fee Estimation (4)
@@ -113,6 +129,11 @@ BITCOIN_DATADIR=E:/
 | `get_difficulty_adjustment` | Epoch progress, estimated adjustment percentage |
 | `compare_blocks` | Side-by-side block statistics comparison |
 
+### Lightning (1)
+| Tool | Description |
+|------|-------------|
+| `decode_bolt11_invoice` | Decode a BOLT11 Lightning invoice (no LN node needed) |
+
 ## 6 Agent Workflow Prompts
 
 Pre-built multi-step analysis templates that agents can invoke:
@@ -126,13 +147,14 @@ Pre-built multi-step analysis templates that agents can invoke:
 | `network_health_report` | Comprehensive network health assessment |
 | `track_transaction` | Track a tx from mempool to confirmation |
 
-## 6 Resources
+## 7 Resources
 
 Static data endpoints for AI agents:
 
 - `bitcoin://node/status` — node summary
 - `bitcoin://fees/current` — fee estimates
 - `bitcoin://mempool/snapshot` — mempool analysis
+- `bitcoin://connection/status` — connection status + troubleshooting hints
 - `bitcoin://protocol/script-opcodes` — Bitcoin Script opcodes reference
 - `bitcoin://protocol/address-types` — address type properties and BIPs
 - `bitcoin://protocol/sighash-types` — signature hash types
@@ -149,7 +171,10 @@ See [`examples/`](examples/) for ready-to-use config snippets:
 
 | Feature | bitcoin-mcp | Competitors |
 |---------|------------|-------------|
+| Official MCP Registry | **Yes** | No |
+| Tools / Prompts / Resources | **35 / 6 / 7** | Fewer |
 | Data source | Your local node | Third-party APIs |
+| No-node fallback | Satoshi API remote | N/A |
 | Mempool analysis | Fee bucketing, congestion, CPFP | Basic stats only |
 | Inscription detection | Yes | No |
 | Pool identification | Yes | No |
@@ -159,6 +184,14 @@ See [`examples/`](examples/) for ready-to-use config snippets:
 | Rate limits | None | API-dependent |
 | Typed responses | Pydantic models | Raw JSON |
 
+## CLI
+
+```bash
+bitcoin-mcp              # Start MCP server (default)
+bitcoin-mcp --version    # Print version
+bitcoin-mcp --check      # Test RPC connection and exit
+```
+
 ## Requirements
 
 - Python 3.10+
@@ -167,6 +200,7 @@ See [`examples/`](examples/) for ready-to-use config snippets:
 
 ## Related
 
+- [Satoshi API](https://github.com/Bortlesboat/bitcoin-api) — REST API for Bitcoin nodes (pairs with bitcoin-mcp for remote access)
 - [bitcoinlib-rpc](https://github.com/Bortlesboat/bitcoinlib-rpc) — the Python library powering this server
 - [Bitcoin Protocol Guide](https://bortlesboat.github.io/bitcoin-protocol-guide/) — educational companion
 

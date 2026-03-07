@@ -1,18 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.bortlesboat/bitcoin-mcp",
+  "name": "io.github.Bortlesboat/bitcoin-mcp",
   "title": "Bitcoin MCP",
-  "description": "MCP server for Bitcoin Core/Knots nodes — 32 tools, 6 prompts, 6 resources for AI agents to query blockchain data, analyze fees, inspect transactions, and monitor mining. Self-hosted, runs against your own node.",
+  "description": "MCP server for Bitcoin Core nodes — 35 tools for AI agents to query blockchain data",
   "repository": {
     "url": "https://github.com/Bortlesboat/bitcoin-mcp",
     "source": "github"
   },
-  "version": "0.2.1",
+  "version": "0.3.0",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "bitcoin-mcp",
-      "version": "0.2.1",
+      "version": "0.3.0",
       "transport": {
         "type": "stdio"
       },
@@ -25,11 +25,18 @@
           "name": "BITCOIN_RPC_HOST"
         },
         {
-          "description": "Bitcoin Core RPC port (default: 8332)",
+          "description": "Bitcoin Core RPC port (default: auto-selected by network)",
           "isRequired": false,
           "format": "string",
           "isSecret": false,
           "name": "BITCOIN_RPC_PORT"
+        },
+        {
+          "description": "Bitcoin network: mainnet, testnet, signet, or regtest (default: mainnet). Sets default RPC port if BITCOIN_RPC_PORT is not set.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "BITCOIN_NETWORK"
         }
       ]
     }
