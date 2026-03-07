@@ -1,5 +1,7 @@
 # bitcoin-mcp
 
+<!-- mcp-name: io.github.bortlesboat/bitcoin-mcp -->
+
 [![PyPI](https://img.shields.io/pypi/v/bitcoin-mcp)](https://pypi.org/project/bitcoin-mcp/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)

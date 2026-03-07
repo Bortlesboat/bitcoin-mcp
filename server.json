@@ -1,0 +1,37 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.bortlesboat/bitcoin-mcp",
+  "title": "Bitcoin MCP",
+  "description": "MCP server for Bitcoin Core/Knots nodes — 32 tools, 6 prompts, 6 resources for AI agents to query blockchain data, analyze fees, inspect transactions, and monitor mining. Self-hosted, runs against your own node.",
+  "repository": {
+    "url": "https://github.com/Bortlesboat/bitcoin-mcp",
+    "source": "github"
+  },
+  "version": "0.2.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "bitcoin-mcp",
+      "version": "0.2.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "description": "Bitcoin Core RPC host (default: 127.0.0.1)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "BITCOIN_RPC_HOST"
+        },
+        {
+          "description": "Bitcoin Core RPC port (default: 8332)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "BITCOIN_RPC_PORT"
+        }
+      ]
+    }
+  ]
+}
