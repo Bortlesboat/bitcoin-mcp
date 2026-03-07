@@ -12,7 +12,7 @@ MCP server for Bitcoin Core/Knots nodes. **35 tools, 6 prompts, 7 resources** fo
 
 Runs against **your local node** — no API keys, no rate limits, no third-party dependencies.
 
-**The only Bitcoin MCP server on the [official Anthropic MCP Registry](https://github.com/modelcontextprotocol/servers).**
+**The first Bitcoin MCP server on the [official Anthropic MCP Registry](https://github.com/modelcontextprotocol/servers).**
 
 ## No Node? No Problem
 
