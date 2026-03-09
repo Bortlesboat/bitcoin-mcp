@@ -434,7 +434,7 @@ class TestCLIFlags:
             capture_output=True, text=True,
             cwd=os.path.join(os.path.expanduser("~"), "Bortlesboat", "bitcoin-mcp"),
         )
-        assert "0.3.0" in result.stdout or "0.3.0" in result.stderr
+        assert "0.4.0" in result.stdout or "0.4.0" in result.stderr
         assert result.returncode == 0
 
 
@@ -527,3 +527,146 @@ class TestBolt11Decode:
         ))
         assert result["timestamp"] is not None
         assert isinstance(result["timestamp"], int)
+
+
+class TestPriceAndSupply:
+    """Tests for price and supply tools."""
+
+    def test_get_btc_price_handles_network_error(self, mock_rpc, monkeypatch):
+        """get_btc_price returns error gracefully when CoinGecko is unreachable."""
+        import bitcoin_mcp.server as srv
+        # Mock urlopen to raise
+        import urllib.request
+        def mock_urlopen(*args, **kwargs):
+            raise urllib.error.URLError("mocked network error")
+        monkeypatch.setattr(urllib.request, "urlopen", mock_urlopen)
+        from bitcoin_mcp.server import get_btc_price
+        result = json.loads(get_btc_price())
+        assert "error" in result
+
+    def test_get_btc_price_parses_response(self, mock_rpc, monkeypatch):
+        """get_btc_price returns structured price data."""
+        import urllib.request
+        import io
+        mock_data = json.dumps({"bitcoin": {"usd": 97500.0, "usd_24h_change": -1.5, "usd_market_cap": 1900000000000}}).encode()
+        class MockResp:
+            def read(self): return mock_data
+            def __enter__(self): return self
+            def __exit__(self, *a): pass
+        monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: MockResp())
+        from bitcoin_mcp.server import get_btc_price
+        result = json.loads(get_btc_price())
+        assert result["usd"] == 97500.0
+        assert result["usd_24h_change_pct"] == -1.5
+        assert result["source"] == "coingecko"
+
+    def test_get_supply_info(self, mock_rpc):
+        """get_supply_info returns supply data from node."""
+        from bitcoin_mcp.server import get_supply_info
+        result = json.loads(get_supply_info())
+        assert result["max_supply_btc"] == 21_000_000
+        assert result["current_height"] == 890000
+        assert result["halvings_completed"] == 4  # 890000 // 210000 = 4
+        assert result["current_subsidy_btc"] == 50.0 / (2 ** 4)  # 3.125
+        assert result["blocks_until_halving"] > 0
+        assert result["annual_inflation_rate_pct"] > 0
+        assert result["pct_mined"] > 90  # Should be over 90% mined
+
+    def test_get_halving_countdown(self, mock_rpc):
+        """get_halving_countdown returns countdown data."""
+        from bitcoin_mcp.server import get_halving_countdown
+        result = json.loads(get_halving_countdown())
+        assert result["current_height"] == 890000
+        assert result["next_halving_height"] == 1050000  # (4+1) * 210000
+        assert result["blocks_remaining"] == 160000
+        assert result["current_subsidy_btc"] == 3.125
+        assert result["next_subsidy_btc"] == 1.5625
+        assert result["subsidy_reduction_pct"] == 50.0
+        assert result["est_days_remaining"] > 0
+
+    def test_get_supply_info_calculates_inflation(self, mock_rpc):
+        """Verify inflation rate calculation is reasonable."""
+        from bitcoin_mcp.server import get_supply_info
+        result = json.loads(get_supply_info())
+        # At halving 4, subsidy = 3.125 BTC/block
+        # ~52560 blocks/year * 3.125 = ~164,250 BTC/year
+        # With ~19.7M in circulation, that's ~0.83%
+        assert 0.5 < result["annual_inflation_rate_pct"] < 2.0
+
+
+class TestSituationSummary:
+    """Tests for the get_situation_summary briefing tool."""
+
+    def test_returns_structured_briefing(self, mock_rpc, monkeypatch):
+        """get_situation_summary returns all expected fields."""
+        import urllib.request
+        mock_data = json.dumps({"bitcoin": {"usd": 97500.0, "usd_24h_change": 2.1}}).encode()
+        class MockResp:
+            def read(self): return mock_data
+            def __enter__(self): return self
+            def __exit__(self, *a): pass
+        monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: MockResp())
+        from bitcoin_mcp.server import get_situation_summary
+        result = json.loads(get_situation_summary())
+        assert result["btc_usd"] == 97500.0
+        assert result["height"] == 890000
+        assert "fees_sat_per_vb" in result
+        assert "next_block" in result["fees_sat_per_vb"]
+        assert "typical_tx_cost" in result
+        assert result["typical_tx_cost"]["sats"] > 0
+
+    def test_works_without_price(self, mock_rpc, monkeypatch):
+        """get_situation_summary works even when price fetch fails."""
+        import urllib.request
+        def mock_fail(*a, **k):
+            raise urllib.error.URLError("no internet")
+        monkeypatch.setattr(urllib.request, "urlopen", mock_fail)
+        from bitcoin_mcp.server import get_situation_summary
+        result = json.loads(get_situation_summary())
+        assert result["btc_usd"] is None
+        assert result["height"] == 890000
+        assert result["typical_tx_cost"]["usd"] is None
+
+
+class TestEstimateTransactionCost:
+    """Tests for estimate_transaction_cost with USD pricing."""
+
+    def test_returns_usd_with_price(self, mock_rpc, monkeypatch):
+        """estimate_transaction_cost includes USD when price is available."""
+        import urllib.request
+        mock_data = json.dumps({"bitcoin": {"usd": 100000.0}}).encode()
+        class MockResp:
+            def read(self): return mock_data
+            def __enter__(self): return self
+            def __exit__(self, *a): pass
+        monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: MockResp())
+        from bitcoin_mcp.server import estimate_transaction_cost
+        result = json.loads(estimate_transaction_cost(2, 2, "p2wpkh"))
+        assert result["btc_usd"] == 100000.0
+        assert "usd" in result["estimates"]["next_block"]
+        assert result["estimates"]["next_block"]["usd"] > 0
+        assert "savings_by_waiting_1_day" in result
+        assert "usd" in result["savings_by_waiting_1_day"]
+
+    def test_works_without_price(self, mock_rpc, monkeypatch):
+        """estimate_transaction_cost works when price fetch fails."""
+        import urllib.request
+        def mock_fail(*a, **k):
+            raise urllib.error.URLError("no internet")
+        monkeypatch.setattr(urllib.request, "urlopen", mock_fail)
+        from bitcoin_mcp.server import estimate_transaction_cost
+        result = json.loads(estimate_transaction_cost(1, 2, "p2tr"))
+        assert result["btc_usd"] is None
+        assert "usd" not in result["estimates"]["next_block"]
+        assert result["estimates"]["next_block"]["total_sats"] > 0
+
+    def test_taproot_vsize(self, mock_rpc, monkeypatch):
+        """Verify P2TR vsize calculation is reasonable."""
+        import urllib.request
+        def mock_fail(*a, **k):
+            raise urllib.error.URLError("no internet")
+        monkeypatch.setattr(urllib.request, "urlopen", mock_fail)
+        from bitcoin_mcp.server import estimate_transaction_cost
+        result = json.loads(estimate_transaction_cost(2, 2, "p2tr"))
+        # 2 P2TR inputs + 2 P2TR outputs should be roughly 200-250 vbytes
+        assert 150 < result["tx_size_vbytes"] < 300

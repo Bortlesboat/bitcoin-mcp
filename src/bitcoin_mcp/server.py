@@ -1,4 +1,4 @@
-"""Bitcoin MCP Server — 35 tools for AI agents to query Bitcoin nodes."""
+"""Bitcoin MCP Server — 40 tools for AI agents to query Bitcoin nodes."""
 
 import argparse
 import json
@@ -6,6 +6,8 @@ import logging
 import os
 import re
 import sys
+import urllib.request
+import urllib.error
 
 from mcp.server.fastmcp import FastMCP
 
@@ -73,7 +75,7 @@ def get_rpc() -> BitcoinRPC:
 def get_node_status() -> str:
     """Get Bitcoin node status: chain, height, sync progress, disk usage, connections, version."""
     status = _get_status(get_rpc())
-    return status.model_dump_json(indent=2)
+    return status.model_dump_json()
 
 
 @mcp.tool()
@@ -89,7 +91,7 @@ def get_peer_info() -> str:
             "synced_blocks": p.get("synced_blocks"),
             "connection_type": p.get("connection_type"),
         })
-    return json.dumps(summary, indent=2)
+    return json.dumps(summary)
 
 
 @mcp.tool()
@@ -105,7 +107,7 @@ def get_network_info() -> str:
         "connections_out": info.get("connections_out", 0),
         "relayfee": info["relayfee"],
         "warnings": info.get("warnings", ""),
-    }, indent=2)
+    })
 
 
 # ============================================================
@@ -126,7 +128,7 @@ def get_blockchain_info() -> str:
         "size_on_disk": info["size_on_disk"],
         "pruned": info["pruned"],
         "softforks": info.get("softforks", {}),
-    }, indent=2)
+    })
 
 
 @mcp.tool()
@@ -137,7 +139,7 @@ def analyze_block(height_or_hash: str) -> str:
         height_or_hash: Block height (e.g. "939290") or block hash
     """
     analysis = _analyze_block(get_rpc(), height_or_hash)
-    return analysis.model_dump_json(indent=2)
+    return analysis.model_dump_json()
 
 
 @mcp.tool()
@@ -148,7 +150,7 @@ def get_block_stats(height: int) -> str:
         height: Block height
     """
     stats = get_rpc().getblockstats(height)
-    return json.dumps(stats, indent=2)
+    return json.dumps(stats)
 
 
 @mcp.tool()
@@ -159,14 +161,14 @@ def get_chain_tx_stats(nblocks: int = 2016) -> str:
         nblocks: Number of blocks to average over (default 2016 = ~2 weeks)
     """
     stats = get_rpc().getchaintxstats(nblocks)
-    return json.dumps(stats, indent=2)
+    return json.dumps(stats)
 
 
 @mcp.tool()
 def get_chain_tips() -> str:
     """Get chain tips: active chain, forks, and stale branches. Useful for detecting chain splits."""
     tips = get_rpc().getchaintips()
-    return json.dumps(tips, indent=2)
+    return json.dumps(tips)
 
 
 @mcp.tool()
@@ -194,7 +196,7 @@ def search_blocks(start_height: int, end_height: int) -> str:
             "total_weight": stats.get("total_weight"),
             "total_size": stats.get("total_size"),
         })
-    return json.dumps(results, indent=2)
+    return json.dumps(results)
 
 
 # ============================================================
@@ -206,7 +208,7 @@ def search_blocks(start_height: int, end_height: int) -> str:
 def analyze_mempool() -> str:
     """Analyze the mempool: tx count, fee buckets, congestion level, next-block minimum fee."""
     summary = _analyze_mempool(get_rpc())
-    return summary.model_dump_json(indent=2)
+    return summary.model_dump_json()
 
 
 @mcp.tool()
@@ -217,7 +219,7 @@ def get_mempool_entry(txid: str) -> str:
         txid: Transaction hash (64 hex characters)
     """
     entry = get_rpc().getmempoolentry(txid)
-    return json.dumps(entry, indent=2)
+    return json.dumps(entry)
 
 
 @mcp.tool()
@@ -231,7 +233,7 @@ def get_mempool_info() -> str:
         "maxmempool": info["maxmempool"],
         "mempoolminfee": info["mempoolminfee"],
         "minrelaytxfee": info["minrelaytxfee"],
-    }, indent=2)
+    })
 
 
 @mcp.tool()
@@ -258,7 +260,7 @@ def get_mempool_ancestors(txid: str) -> str:
         "txid": txid,
         "ancestor_count": len(ancestors),
         "ancestors": summary,
-    }, indent=2)
+    })
 
 
 # ============================================================
@@ -274,7 +276,7 @@ def analyze_transaction(txid: str) -> str:
         txid: Transaction hash (64 hex characters). Requires txindex=1 for confirmed txs.
     """
     analysis = _analyze_transaction(get_rpc(), txid)
-    return analysis.model_dump_json(indent=2)
+    return analysis.model_dump_json()
 
 
 @mcp.tool()
@@ -285,7 +287,7 @@ def decode_raw_transaction(hex_string: str) -> str:
         hex_string: Raw transaction in hex format
     """
     result = get_rpc().decoderawtransaction(hex_string)
-    return json.dumps(result, indent=2)
+    return json.dumps(result)
 
 
 @mcp.tool()
@@ -299,7 +301,7 @@ def check_utxo(txid: str, vout: int) -> str:
     result = get_rpc().gettxout(txid, vout)
     if result is None:
         return json.dumps({"spent": True, "message": "Output is spent or does not exist"})
-    return json.dumps({"spent": False, "utxo": result}, indent=2)
+    return json.dumps({"spent": False, "utxo": result})
 
 
 @mcp.tool()
@@ -315,7 +317,7 @@ def send_raw_transaction(hex_string: str, max_fee_rate: float = 0.10) -> str:
     """
     try:
         txid = get_rpc().sendrawtransaction(hex_string, max_fee_rate)
-        return json.dumps({"txid": txid, "broadcast": True}, indent=2)
+        return json.dumps({"txid": txid, "broadcast": True})
     except Exception as e:
         return json.dumps({"error": str(e), "broadcast": False})
 
@@ -329,15 +331,19 @@ def send_raw_transaction(hex_string: str, max_fee_rate: float = 0.10) -> str:
 def get_fee_estimates() -> str:
     """Get fee rate estimates for 1/3/6/25/144 block confirmation targets in sat/vB."""
     estimates = _get_fee_estimates(get_rpc())
-    return json.dumps([e.model_dump() for e in estimates], indent=2)
+    return json.dumps([e.model_dump() for e in estimates])
 
 
 @mcp.tool()
 def get_fee_recommendation() -> str:
-    """Get a plain-English fee recommendation based on current estimates."""
+    """Get a plain-English fee recommendation based on current estimates, with raw rate data."""
     estimates = _get_fee_estimates(get_rpc())
     rates = {e.conf_target: e.fee_rate_sat_vb for e in estimates if not e.errors}
-    return fee_recommendation(rates)
+    result = {
+        "recommendation": fee_recommendation(rates),
+        "rates": rates,
+    }
+    return json.dumps(result)
 
 
 @mcp.tool()
@@ -354,7 +360,7 @@ def estimate_smart_fee(conf_target: int) -> str:
         "fee_rate_btc_kvb": fee_rate,
         "fee_rate_sat_vb": fee_rate * 100_000,
         "errors": result.get("errors", []),
-    }, indent=2)
+    })
 
 
 @mcp.tool()
@@ -373,7 +379,91 @@ def compare_fee_estimates() -> str:
             "cost_140vb_btc": round(rate * 140 / 1e8, 8) if rate else None,
             "errors": e.errors or None,
         })
-    return json.dumps(rows, indent=2)
+    return json.dumps(rows)
+
+
+@mcp.tool()
+def estimate_transaction_cost(
+    input_count: int = 1,
+    output_count: int = 2,
+    address_type: str = "p2wpkh",
+) -> str:
+    """Estimate Bitcoin transaction cost in sats AND USD at different urgency levels. Supports address types: p2pkh (legacy), p2sh-p2wpkh (nested segwit), p2wpkh (native segwit), p2tr (taproot). Shows how much you save by waiting."""
+    try:
+        rpc = get_rpc()
+
+        # Estimate vbytes based on address type
+        overhead = 10.5  # version + locktime + segwit marker
+        witness_discount = 0.25
+
+        type_sizes = {
+            "p2pkh": {"input": 148, "output": 34, "witness": 0},
+            "p2sh-p2wpkh": {"input": 91, "output": 32, "witness": 107},
+            "p2wpkh": {"input": 68, "output": 31, "witness": 107},
+            "p2tr": {"input": 57.5, "output": 43, "witness": 65},
+        }
+
+        sizes = type_sizes.get(address_type, type_sizes["p2wpkh"])
+
+        input_vbytes = sizes["input"] * input_count
+        output_vbytes = sizes["output"] * output_count
+        witness_weight = sizes["witness"] * input_count * witness_discount
+        total_vbytes = round(overhead + input_vbytes + output_vbytes + witness_weight)
+
+        fees_1 = rpc.estimatesmartfee(1)
+        fees_6 = rpc.estimatesmartfee(6)
+        fees_144 = rpc.estimatesmartfee(144)
+
+        # Fetch BTC price for USD conversion
+        btc_usd = None
+        try:
+            url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
+            req = urllib.request.Request(url, headers={"User-Agent": "bitcoin-mcp"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                price_data = json.loads(resp.read())
+            btc_usd = price_data.get("bitcoin", {}).get("usd")
+        except Exception:
+            pass  # USD conversion optional
+
+        def calc_cost(fee_result):
+            rate = fee_result.get("feerate", 0) * 100000  # BTC/kvB to sat/vB
+            sats = round(rate * total_vbytes)
+            cost = {"sat_per_vb": round(rate, 2), "total_sats": sats}
+            if btc_usd:
+                cost["usd"] = round((sats / 1e8) * btc_usd, 2)
+            return cost
+
+        next_block = calc_cost(fees_1)
+        one_hour = calc_cost(fees_6)
+        one_day = calc_cost(fees_144)
+
+        result = {
+            "tx_size_vbytes": total_vbytes,
+            "address_type": address_type,
+            "inputs": input_count,
+            "outputs": output_count,
+            "btc_usd": btc_usd,
+            "estimates": {
+                "next_block": next_block,
+                "one_hour": one_hour,
+                "one_day": one_day,
+            },
+        }
+
+        # Calculate savings from waiting
+        if next_block["total_sats"] > 0 and one_day["total_sats"] > 0:
+            saved_sats = next_block["total_sats"] - one_day["total_sats"]
+            result["savings_by_waiting_1_day"] = {
+                "sats": saved_sats,
+                "pct": round((saved_sats / next_block["total_sats"]) * 100, 1),
+            }
+            if btc_usd:
+                result["savings_by_waiting_1_day"]["usd"] = round((saved_sats / 1e8) * btc_usd, 2)
+
+        return json.dumps(result)
+    except Exception as e:
+        hint = _connection_hint(e)
+        return json.dumps({"error": str(e), "hint": hint})
 
 
 # ============================================================
@@ -385,7 +475,7 @@ def compare_fee_estimates() -> str:
 def get_mining_info() -> str:
     """Get mining info: difficulty, network hashrate, current block size."""
     info = get_rpc().getmininginfo()
-    return json.dumps(info, indent=2)
+    return json.dumps(info)
 
 
 @mcp.tool()
@@ -398,7 +488,7 @@ def analyze_next_block() -> str:
             {"txid": txid, "fee_rate": rate, "fee_sats": fee}
             for txid, rate, fee in data["top_5"]
         ]
-    return json.dumps(data, indent=2)
+    return json.dumps(data)
 
 
 # ============================================================
@@ -416,7 +506,7 @@ def get_utxo_set_info() -> str:
         "total_amount": info["total_amount"],
         "disk_size": info["disk_size"],
         "hash_serialized_2": info.get("hash_serialized_2", ""),
-    }, indent=2)
+    })
 
 
 @mcp.tool()
@@ -427,8 +517,68 @@ def get_block_count() -> str:
 
 
 # ============================================================
-# AI DEVELOPER TOOLS (8 tools)
+# AI DEVELOPER TOOLS (10 tools)
 # ============================================================
+
+
+@mcp.tool()
+def get_situation_summary() -> str:
+    """Get a quick Bitcoin briefing: price, fees, mempool, and chain tip in one call. Use this as your first call to understand current conditions — replaces calling 5+ tools separately."""
+    try:
+        rpc = get_rpc()
+
+        fees = rpc.estimatesmartfee(1)
+        fees_6 = rpc.estimatesmartfee(6)
+        fees_144 = rpc.estimatesmartfee(144)
+        mempool = rpc.getmempoolinfo()
+        blockchain = rpc.getblockchaininfo()
+
+        next_block_rate = round(fees.get("feerate", 0) * 100000, 2)
+        hour_rate = round(fees_6.get("feerate", 0) * 100000, 2)
+        day_rate = round(fees_144.get("feerate", 0) * 100000, 2)
+
+        # Fetch BTC price
+        btc_usd = None
+        try:
+            url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true"
+            req = urllib.request.Request(url, headers={"User-Agent": "bitcoin-mcp"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                price_data = json.loads(resp.read())
+            btc = price_data.get("bitcoin", {})
+            btc_usd = btc.get("usd")
+            btc_24h_change = round(btc.get("usd_24h_change", 0), 2)
+        except Exception:
+            btc_24h_change = None
+
+        # Typical tx cost in USD (140 vB native segwit)
+        typical_cost_sats = round(next_block_rate * 140)
+        typical_cost_usd = round((typical_cost_sats / 1e8) * btc_usd, 2) if btc_usd else None
+
+        summary = {
+            "btc_usd": btc_usd,
+            "btc_24h_change_pct": btc_24h_change,
+            "height": blockchain.get("blocks"),
+            "chain": blockchain.get("chain"),
+            "sync_progress_pct": round(blockchain.get("verificationprogress", 0) * 100, 2),
+            "fees_sat_per_vb": {
+                "next_block": next_block_rate,
+                "hour": hour_rate,
+                "day": day_rate,
+            },
+            "typical_tx_cost": {
+                "sats": typical_cost_sats,
+                "usd": typical_cost_usd,
+            },
+            "mempool": {
+                "tx_count": mempool.get("size", 0),
+                "size_mb": round(mempool.get("bytes", 0) / 1_000_000, 2),
+                "min_fee_sat_vb": round(mempool.get("mempoolminfee", 0) * 100000, 2),
+            },
+        }
+        return json.dumps(summary)
+    except Exception as e:
+        hint = _connection_hint(e)
+        return json.dumps({"error": str(e), "hint": hint})
 
 
 @mcp.tool()
@@ -464,7 +614,7 @@ def describe_rpc_command(command: str) -> str:
         "description": "\n".join(description_lines).strip(),
         "arguments": "\n".join(arguments).strip(),
         "examples": "\n".join(examples).strip(),
-    }, indent=2)
+    })
 
 
 @mcp.tool()
@@ -485,7 +635,7 @@ def list_rpc_commands() -> str:
             categories[current_category] = []
         elif current_category:
             categories.setdefault(current_category, []).append(line.split()[0])
-    return json.dumps(categories, indent=2)
+    return json.dumps(categories)
 
 
 @mcp.tool()
@@ -500,7 +650,7 @@ def search_blockchain(query: str) -> str:
     if query.isdigit():
         try:
             analysis = _analyze_block(get_rpc(), query)
-            return analysis.model_dump_json(indent=2)
+            return analysis.model_dump_json()
         except Exception as e:
             return json.dumps({"error": f"Block lookup failed: {e}"})
     # 64 hex chars — block hash or txid
@@ -508,19 +658,19 @@ def search_blockchain(query: str) -> str:
         if query.startswith("0000"):
             try:
                 analysis = _analyze_block(get_rpc(), query)
-                return analysis.model_dump_json(indent=2)
+                return analysis.model_dump_json()
             except Exception:
                 pass  # fall through to txid
         try:
             analysis = _analyze_transaction(get_rpc(), query)
-            return analysis.model_dump_json(indent=2)
+            return analysis.model_dump_json()
         except Exception as e:
             return json.dumps({"error": f"Transaction lookup failed: {e}"})
     # Address validation
     try:
         result = get_rpc().validateaddress(query)
         if result.get("isvalid"):
-            return json.dumps(result, indent=2)
+            return json.dumps(result)
     except Exception:
         pass
     return json.dumps({"error": f"Could not identify query: {query!r}. Provide a txid, block hash, block height, or address."})
@@ -539,7 +689,7 @@ def explain_script(hex_script: str) -> str:
         return json.dumps({"error": str(e)})
     if "asm" in result:
         result["opcodes"] = result["asm"].split()
-    return json.dumps(result, indent=2)
+    return json.dumps(result)
 
 
 @mcp.tool()
@@ -553,7 +703,7 @@ def get_address_utxos(address: str) -> str:
         result = get_rpc().scantxoutset("start", [f"addr({address})"])
     except Exception as e:
         return json.dumps({"error": str(e)})
-    return json.dumps(result, indent=2)
+    return json.dumps(result)
 
 
 @mcp.tool()
@@ -579,7 +729,7 @@ def validate_address(address: str) -> str:
     elif address.startswith("bc1p"):
         addr_type = "P2TR"
     result["address_type_classification"] = addr_type
-    return json.dumps(result, indent=2)
+    return json.dumps(result)
 
 
 @mcp.tool()
@@ -619,7 +769,7 @@ def get_difficulty_adjustment() -> str:
         "est_remaining_hours": round(est_remaining_secs / 3600, 1),
         "est_adjustment_pct": round(est_adjustment_pct, 2),
         "difficulty": info["difficulty"],
-    }, indent=2)
+    })
 
 
 @mcp.tool()
@@ -654,7 +804,113 @@ def compare_blocks(height1: int, height2: int) -> str:
         "height_1": height1,
         "height_2": height2,
         "comparison": comparison,
-    }, indent=2)
+    })
+
+
+# ============================================================
+# PRICE & SUPPLY (3 tools)
+# ============================================================
+
+
+@mcp.tool()
+def get_btc_price() -> str:
+    """Get current BTC/USD price from CoinGecko (free, no API key). Returns price, 24h change, and market cap. Use this to convert sat/vB fees into dollar amounts."""
+    try:
+        url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true&include_market_cap=true"
+        req = urllib.request.Request(url, headers={"User-Agent": "bitcoin-mcp"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+        btc = data.get("bitcoin", {})
+        return json.dumps({
+            "usd": btc.get("usd"),
+            "usd_24h_change_pct": round(btc.get("usd_24h_change", 0), 2),
+            "usd_market_cap": btc.get("usd_market_cap"),
+            "source": "coingecko",
+        })
+    except Exception as e:
+        return json.dumps({"error": f"Price fetch failed: {e}", "hint": "CoinGecko may be rate-limiting. Try again in 30 seconds."})
+
+
+@mcp.tool()
+def get_supply_info() -> str:
+    """Get Bitcoin supply data: circulating supply, max supply, inflation rate, subsidy per block, and next halving estimate. Derived from live node data."""
+    try:
+        rpc = get_rpc()
+        info = rpc.getblockchaininfo()
+        height = info["blocks"]
+
+        # Calculate current subsidy
+        halvings = height // 210_000
+        subsidy_btc = 50.0 / (2 ** halvings)
+
+        # Supply calculation (approximate from subsidy schedule)
+        total_mined = 0.0
+        for h in range(halvings):
+            total_mined += 210_000 * (50.0 / (2 ** h))
+        blocks_in_current_era = height - (halvings * 210_000)
+        total_mined += blocks_in_current_era * subsidy_btc
+
+        # Next halving
+        next_halving_height = (halvings + 1) * 210_000
+        blocks_until_halving = next_halving_height - height
+        est_days_until_halving = round(blocks_until_halving * 10 / 60 / 24)
+
+        # Annual inflation rate
+        blocks_per_year = 365.25 * 24 * 6  # ~52,560
+        annual_new_btc = blocks_per_year * subsidy_btc
+        inflation_rate_pct = round((annual_new_btc / total_mined) * 100, 3) if total_mined > 0 else 0
+
+        return json.dumps({
+            "circulating_supply_btc": round(total_mined, 8),
+            "max_supply_btc": 21_000_000,
+            "pct_mined": round((total_mined / 21_000_000) * 100, 2),
+            "current_subsidy_btc": subsidy_btc,
+            "halvings_completed": halvings,
+            "current_height": height,
+            "next_halving_height": next_halving_height,
+            "blocks_until_halving": blocks_until_halving,
+            "est_days_until_halving": est_days_until_halving,
+            "annual_inflation_rate_pct": inflation_rate_pct,
+        })
+    except Exception as e:
+        hint = _connection_hint(e)
+        return json.dumps({"error": str(e), "hint": hint})
+
+
+@mcp.tool()
+def get_halving_countdown() -> str:
+    """Get a focused countdown to the next Bitcoin halving: blocks remaining, estimated date, and subsidy change."""
+    try:
+        rpc = get_rpc()
+        height = rpc.getblockcount()
+        halvings = height // 210_000
+        current_subsidy = 50.0 / (2 ** halvings)
+        next_subsidy = 50.0 / (2 ** (halvings + 1))
+        next_halving_height = (halvings + 1) * 210_000
+        blocks_remaining = next_halving_height - height
+
+        # Estimate time using recent block rate
+        try:
+            stats = rpc.getchaintxstats(2016)
+            secs_per_block = stats.get("window_interval", 600 * 2016) / stats.get("window_block_count", 2016)
+        except Exception:
+            secs_per_block = 600  # fallback to 10 min
+
+        est_seconds = blocks_remaining * secs_per_block
+        est_days = round(est_seconds / 86400)
+
+        return json.dumps({
+            "current_height": height,
+            "next_halving_height": next_halving_height,
+            "blocks_remaining": blocks_remaining,
+            "est_days_remaining": est_days,
+            "current_subsidy_btc": current_subsidy,
+            "next_subsidy_btc": next_subsidy,
+            "subsidy_reduction_pct": 50.0,
+        })
+    except Exception as e:
+        hint = _connection_hint(e)
+        return json.dumps({"error": str(e), "hint": hint})
 
 
 # ============================================================
@@ -739,7 +995,7 @@ def decode_bolt11_invoice(invoice: str) -> str:
         "timestamp": timestamp,
         "data_length": len(data_part),
     }
-    return json.dumps(result, indent=2)
+    return json.dumps(result)
 
 
 # ============================================================
@@ -799,28 +1055,28 @@ def resource_connection_status() -> str:
     except Exception as e:
         info["error"] = str(e)
         info["hint"] = _connection_hint(e)
-    return json.dumps(info, indent=2)
+    return json.dumps(info)
 
 
 @mcp.resource("bitcoin://node/status")
 def resource_node_status() -> str:
     """Current node status summary."""
     status = _get_status(get_rpc())
-    return status.model_dump_json(indent=2)
+    return status.model_dump_json()
 
 
 @mcp.resource("bitcoin://fees/current")
 def resource_current_fees() -> str:
     """Current fee estimates."""
     estimates = _get_fee_estimates(get_rpc())
-    return json.dumps([e.model_dump() for e in estimates], indent=2)
+    return json.dumps([e.model_dump() for e in estimates])
 
 
 @mcp.resource("bitcoin://mempool/snapshot")
 def resource_mempool_snapshot() -> str:
     """Current mempool summary."""
     summary = _analyze_mempool(get_rpc())
-    return summary.model_dump_json(indent=2)
+    return summary.model_dump_json()
 
 
 @mcp.resource("bitcoin://protocol/script-opcodes")
@@ -863,7 +1119,7 @@ def resource_script_opcodes() -> str:
             "OP_CHECKLOCKTIMEVERIFY": "Fail if locktime not reached (BIP 65)",
             "OP_CHECKSEQUENCEVERIFY": "Fail if relative locktime not reached (BIP 112)",
         },
-    }, indent=2)
+    })
 
 
 @mcp.resource("bitcoin://protocol/address-types")
@@ -875,7 +1131,7 @@ def resource_address_types() -> str:
         {"type": "P2WPKH", "prefix": "bc1q", "example_prefix": "bc1q...", "length": "42", "witness_version": 0, "script_type": "witness_v0_keyhash", "bip": "BIP 84/141", "description": "Native SegWit pay-to-witness-public-key-hash"},
         {"type": "P2WSH", "prefix": "bc1q", "example_prefix": "bc1q...", "length": "62", "witness_version": 0, "script_type": "witness_v0_scripthash", "bip": "BIP 141", "description": "Native SegWit pay-to-witness-script-hash"},
         {"type": "P2TR", "prefix": "bc1p", "example_prefix": "bc1p...", "length": "62", "witness_version": 1, "script_type": "witness_v1_taproot", "bip": "BIP 86/341", "description": "Taproot pay-to-taproot"},
-    ], indent=2)
+    ])
 
 
 @mcp.resource("bitcoin://protocol/sighash-types")
@@ -889,7 +1145,7 @@ def resource_sighash_types() -> str:
         {"name": "SIGHASH_NONE|ANYONECANPAY", "value": "0x82", "description": "Sign one input, no outputs"},
         {"name": "SIGHASH_SINGLE|ANYONECANPAY", "value": "0x83", "description": "Sign one input and matching output"},
         {"name": "SIGHASH_DEFAULT (Taproot)", "value": "0x00", "description": "Taproot default, equivalent to SIGHASH_ALL but with different digest algorithm (BIP 341)"},
-    ], indent=2)
+    ])
 
 
 # ============================================================
@@ -998,7 +1254,7 @@ if _satoshi_api_url:
             try:
                 with L402Client(_satoshi_api_url) as client:
                     result = client.get(endpoint, params=parsed_params or None)
-                    return json.dumps(result, indent=2)
+                    return json.dumps(result)
             except Exception as e:
                 return json.dumps({"error": str(e)})
 

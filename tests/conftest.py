@@ -84,6 +84,8 @@ class MockRPC:
             "txcount": 950000000,
             "txrate": 5.5,
             "window_tx_count": 500000,
+            "window_block_count": 2016,
+            "window_interval": 2016 * 600,  # ~10 min/block
         }
 
     def getchaintips(self):

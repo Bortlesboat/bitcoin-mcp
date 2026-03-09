@@ -1,5 +1,16 @@
 {
+  "_comment": "Hosted API mode (no local node needed)",
   "mcpServers": {
+    "bitcoin": {
+      "command": "bitcoin-mcp",
+      "env": {
+        "SATOSHI_API_URL": "https://bitcoinsapi.com"
+      }
+    }
+  },
+
+  "_comment_local": "Local node mode (uncomment and replace the above)",
+  "_local_example": {
     "bitcoin": {
       "command": "bitcoin-mcp",
       "env": {

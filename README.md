@@ -8,21 +8,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-63%20passed-brightgreen)](tests/)
 
-MCP server for Bitcoin Core/Knots nodes. **35 tools, 6 prompts, 7 resources** for AI agents to query the blockchain, analyze mempool fee markets, decode transactions, broadcast transactions, decode Lightning invoices, inspect mining economics, and explore the protocol.
+MCP server that lets AI agents **save money on Bitcoin fees and save time monitoring payments**. Your agent can check whether to send now or wait, verify when a payment confirms, and query any blockchain data — without you building custom Bitcoin plumbing.
 
-Runs against **your local node** — no API keys, no rate limits, no third-party dependencies.
+Runs against **your local node** or the free hosted [Satoshi API](https://bitcoinsapi.com). No API keys needed, no rate limits, no third-party dependencies.
 
-**The first Bitcoin MCP server on the [official Anthropic MCP Registry](https://github.com/modelcontextprotocol/servers).**
-
-## No Node? No Problem
-
-Point at a hosted [Satoshi API](https://bitcoinsapi.com) instance instead of running your own node:
-
-```bash
-SATOSHI_API_URL=https://bitcoinsapi.com bitcoin-mcp
-```
-
-This adds a `query_remote_api` tool that proxies requests through the REST API, with optional L402 Lightning micropayments.
+**The first Bitcoin MCP server on the [official Anthropic MCP Registry](https://github.com/modelcontextprotocol/servers).** 40 tools, 6 prompts, 7 resources.
 
 ## 60-Second Quickstart
 
@@ -30,17 +20,35 @@ This adds a `query_remote_api` tool that proxies requests through the REST API, 
 # 1. Install
 pip install bitcoin-mcp
 
-# 2. Add to Claude Desktop (claude_desktop_config.json)
+# 2. No node needed — use the hosted API:
+SATOSHI_API_URL=https://bitcoinsapi.com bitcoin-mcp
+
+# 3. Verify it works:
+bitcoin-mcp --check
+
+# 4. Add to Claude Desktop (claude_desktop_config.json)
 {
   "mcpServers": {
-    "bitcoin": { "command": "bitcoin-mcp" }
+    "bitcoin": {
+      "command": "bitcoin-mcp",
+      "env": { "SATOSHI_API_URL": "https://bitcoinsapi.com" }
+    }
   }
 }
 
-# 3. Ask Claude: "What's the current Bitcoin fee environment?"
+# 5. Ask Claude: "Give me a Bitcoin briefing"
 ```
 
-That's it. The server auto-detects your node via cookie authentication.
+That's it. No local node required.
+
+### Advanced: Use Your Own Node
+
+If you run Bitcoin Core or Bitcoin Knots locally, the server auto-detects it via cookie authentication:
+
+```bash
+bitcoin-mcp              # auto-detects local node
+bitcoin-mcp --check      # verify connection
+```
 
 ## Install
 
@@ -53,16 +61,118 @@ pip install bitcoin-mcp
 Override with environment variables if needed:
 
 ```bash
-BITCOIN_RPC_HOST=127.0.0.1
-BITCOIN_RPC_PORT=8332
+SATOSHI_API_URL=https://bitcoinsapi.com  # use hosted API (no local node needed)
+BITCOIN_RPC_HOST=127.0.0.1              # local node host
+BITCOIN_RPC_PORT=8332                    # local node port
 BITCOIN_RPC_USER=myuser
 BITCOIN_RPC_PASSWORD=mypassword
 BITCOIN_DATADIR=E:/
-BITCOIN_NETWORK=mainnet          # mainnet (default) | testnet | signet | regtest
-SATOSHI_API_URL=https://bitcoinsapi.com  # optional: use remote API instead of local node
+BITCOIN_NETWORK=mainnet                  # mainnet (default) | testnet | signet | regtest
 ```
 
-## 35 Tools
+## Recipes
+
+Copy-paste these into Claude Desktop or Claude Code with bitcoin-mcp installed. Each one saves you money or time.
+
+### "Give me a Bitcoin briefing"
+
+> Give me a 30-second Bitcoin briefing: current price, fees, mempool congestion, and whether it's a good time to send.
+
+Uses `get_situation_summary`. Returns BTC price, fee rates at 3 urgency levels, typical transaction cost in USD, and mempool state — all in one call.
+
+### "How much will my transaction cost in dollars?"
+
+> I want to send Bitcoin from 2 inputs to 2 outputs, all native SegWit. How much will the fee be in dollars at each urgency level?
+
+Uses `estimate_transaction_cost`. Calculates exact vsize for your transaction shape, multiplies by current fee rates, converts to USD. Shows how much you save by waiting.
+
+### "Should I send Bitcoin right now?"
+
+> What's the current fee environment? Should I send a transaction now or wait for lower fees? How much would I save by waiting?
+
+Uses `get_fee_recommendation` + `analyze_mempool` + `compare_fee_estimates`. Returns plain-English advice with specific sat/vB rates and estimated savings.
+
+### "Did I overpay on this transaction?"
+
+> Analyze transaction `<txid>` and tell me if I overpaid on the fee. What's the current rate for the same priority? Show the difference in dollars.
+
+Uses `analyze_transaction` + `compare_fee_estimates` + `get_btc_price`. Retroactive fee audit — shows exactly how much you could have saved.
+
+### "Track this payment"
+
+> Track this transaction and tell me when it's safe to consider confirmed: `<txid>`
+
+Uses `analyze_transaction` + mempool tools. Reports confirmation count, fee rate paid, whether it's likely to confirm in the next block, and RBF status.
+
+### "What fee should I set for a 2-input, 1-output Taproot transaction?"
+
+> I'm building a transaction with 2 P2TR inputs and 1 P2TR output. What fee should I set for confirmation within 3 blocks?
+
+The agent calculates exact vsize for your transaction shape, then checks current fee rates to give you a precise sat amount — not a guess.
+
+### "Decode this transaction"
+
+> Decode and explain this transaction: `<txid>`
+
+Full breakdown: inputs, outputs, fee rate, SegWit/Taproot flags, inscription detection, script types. Plain English, not raw hex.
+
+### "What's happening in the mempool right now?"
+
+> Analyze the current mempool. How congested is it? What's the fee distribution? How many transactions are waiting?
+
+Returns congestion level (low/medium/high), fee bucket breakdown, next-block minimum fee, and total pending transaction count.
+
+### "How much Bitcoin exists right now?"
+
+> What's the current Bitcoin supply? When is the next halving? What's the inflation rate compared to the Fed's target?
+
+Uses `get_supply_info`. Returns circulating supply, percentage mined, halving countdown, and annual inflation rate — all derived from live node data.
+
+### "Is my node healthy?"
+
+> Run a full health check on my Bitcoin node. Check sync status, peer connections, and network health.
+
+Comprehensive report: sync progress, peer count and quality, protocol version, disk usage, mempool state, difficulty adjustment progress.
+
+### "When is the cheapest time to send?"
+
+> Look at fee history for the last 24 hours. When were fees lowest? Is there a pattern?
+
+Historical fee analysis showing the cheapest window, peak fees, and current position relative to the range.
+
+### "What will the next block look like?"
+
+> Analyze the current block template. What transactions are likely to be included? What's the minimum fee to get in?
+
+Shows the projected next block: transaction count, total fees, fee percentiles, and the top-paying transactions waiting to confirm.
+
+### "Compare urgency levels"
+
+> Compare fee rates for different urgency levels. How much more does next-block confirmation cost vs. waiting an hour? Show me in dollars.
+
+Side-by-side comparison: next block vs. ~1 hour vs. ~1 day. Shows exact cost in sats and USD for your specific transaction shape.
+
+### "When is the next halving?"
+
+> How many blocks until the next Bitcoin halving? What will the new block reward be?
+
+Uses `get_halving_countdown`. Returns blocks remaining, estimated days, and the subsidy change — based on actual block production rate, not the assumed 10-minute average.
+
+### "Monitor for whale transactions"
+
+> Watch the mempool for any transaction moving more than 10 BTC.
+
+Real-time whale alert: streams large transactions as they enter the mempool with value, fee rate, and size.
+
+### "What's the current Bitcoin price?"
+
+> What's the BTC/USD price right now? How has it changed in the last 24 hours?
+
+Uses `get_btc_price`. Returns price, 24h change, and market cap from CoinGecko — no API key needed.
+
+---
+
+## 40 Tools
 
 ### Node & Network (3)
 | Tool | Description |
@@ -97,13 +207,14 @@ SATOSHI_API_URL=https://bitcoinsapi.com  # optional: use remote API instead of l
 | `send_raw_transaction` | Broadcast a signed transaction (with fee safety limit) |
 | `check_utxo` | Check if a specific output is unspent |
 
-### Fee Estimation (4)
+### Fee Estimation (5)
 | Tool | Description |
 |------|-------------|
 | `get_fee_estimates` | Rates for 1/3/6/25/144 block targets |
-| `get_fee_recommendation` | Plain-English send/wait advice |
+| `get_fee_recommendation` | Plain-English send/wait advice with raw rate data |
 | `estimate_smart_fee` | Custom confirmation target |
 | `compare_fee_estimates` | Side-by-side urgency labels + cost for 140vB tx |
+| `estimate_transaction_cost` | **Cost in sats AND USD** by address type, inputs, outputs — with savings from waiting |
 
 ### Mining (2)
 | Tool | Description |
@@ -117,9 +228,17 @@ SATOSHI_API_URL=https://bitcoinsapi.com  # optional: use remote API instead of l
 | `get_utxo_set_info` | Total UTXOs, supply, disk size (slow: ~1-2 min) |
 | `get_block_count` | Current block height (fast) |
 
-### AI Developer Tools (8)
+### Price & Supply (3)
 | Tool | Description |
 |------|-------------|
+| `get_btc_price` | BTC/USD price, 24h change, market cap (CoinGecko, no API key) |
+| `get_supply_info` | Circulating supply, inflation rate, halving countdown from live node |
+| `get_halving_countdown` | Focused countdown: blocks remaining, estimated date, subsidy change |
+
+### AI Developer Tools (10)
+| Tool | Description |
+|------|-------------|
+| `get_situation_summary` | **One-call briefing**: price + fees + mempool + chain tip + typical tx cost in USD |
 | `describe_rpc_command` | Structured help for any RPC command |
 | `list_rpc_commands` | All commands grouped by category |
 | `search_blockchain` | Smart router: auto-detects txid, block hash/height, or address |
@@ -172,7 +291,9 @@ See [`examples/`](examples/) for ready-to-use config snippets:
 | Feature | bitcoin-mcp | Competitors |
 |---------|------------|-------------|
 | Official MCP Registry | **Yes** | No |
-| Tools / Prompts / Resources | **35 / 6 / 7** | Fewer |
+| Tools / Prompts / Resources | **40 / 6 / 7** | Fewer |
+| Fee estimates in USD | **Yes** (live BTC price) | No |
+| "Should I send now?" | **Yes** (saves you money) | No |
 | Data source | Your local node | Third-party APIs |
 | No-node fallback | Satoshi API remote | N/A |
 | Mempool analysis | Fee bucketing, congestion, CPFP | Basic stats only |
@@ -180,9 +301,9 @@ See [`examples/`](examples/) for ready-to-use config snippets:
 | Pool identification | Yes | No |
 | SegWit/Taproot metrics | Yes | No |
 | Next-block prediction | Yes | No |
+| Supply & halving data | Yes | No |
 | Agent workflow prompts | 6 built-in | None |
 | Rate limits | None | API-dependent |
-| Typed responses | Pydantic models | Raw JSON |
 
 ## CLI
 
