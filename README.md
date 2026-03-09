@@ -1,22 +1,51 @@
 # bitcoin-mcp
 
 <!-- mcp-name: io.github.Bortlesboat/bitcoin-mcp -->
+<!-- keywords: bitcoin mcp server, bitcoin ai, bitcoin claude, bitcoin model context protocol, bitcoin api, bitcoin fee estimation, bitcoin mempool, bitcoin node, bitcoin core mcp, bitcoin tools for ai agents -->
+
+<div align="center">
+
+# 🦉 bitcoin-mcp
+
+**The most comprehensive Bitcoin MCP server available.**
 
 [![PyPI](https://img.shields.io/pypi/v/bitcoin-mcp)](https://pypi.org/project/bitcoin-mcp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
 [![Tests](https://img.shields.io/badge/tests-108%20passed-brightgreen)](tests/)
-[![Tools](https://img.shields.io/badge/MCP%20tools-43-blue)]()
+[![Tools](https://img.shields.io/badge/MCP%20tools-43-orange)]()
+[![Prompts](https://img.shields.io/badge/prompts-6-orange)]()
+[![Resources](https://img.shields.io/badge/resources-7-orange)]()
 [![Install MCP Server](https://cursor.directory/deeplink/badge.svg)](https://cursor.directory/mcp-servers/bitcoin-mcp)
 [![MCP Registry](https://img.shields.io/badge/MCP-Registry-blue)](https://github.com/modelcontextprotocol/servers)
 
-> **Works with:** Claude Desktop · Cursor · VS Code · Windsurf · any MCP client
+**43 tools** · **6 prompts** · **7 resources** · **108 tests** · **Zero config**
+
+> Works with: Claude Desktop · Claude Code · Cursor · VS Code · Windsurf · any MCP client
+
+</div>
+
+---
 
 MCP server that lets AI agents **save money on Bitcoin fees and save time monitoring payments**. Your agent can check whether to send now or wait, verify when a payment confirms, and query any blockchain data — without you building custom Bitcoin plumbing.
 
 **Works out of the box** — no node, no API keys, no configuration. Connects to the free hosted [Satoshi API](https://bitcoinsapi.com) automatically. If you run Bitcoin Core locally, it auto-detects and uses your node instead.
 
-**The first Bitcoin MCP server on the [official Anthropic MCP Registry](https://github.com/modelcontextprotocol/servers).** 43 tools, 6 prompts, 7 resources.
+**The first Bitcoin MCP server on the [official Anthropic MCP Registry](https://github.com/modelcontextprotocol/servers).** 43 tools, 6 prompts, 7 resources — more than any other Bitcoin MCP server.
+
+## Why bitcoin-mcp?
+
+| | bitcoin-mcp | Other Bitcoin MCPs |
+|---|---|---|
+| **Tools** | **43** (most comprehensive) | 15-18 |
+| **Zero config** | Install and go — no node, no API key | Requires setup |
+| **Fee estimates in USD** | Yes (live BTC price) | No |
+| **"Should I send now?"** | Yes — saves you real money | No |
+| **Inscription detection** | Yes | No |
+| **Mining pool ID** | Yes (25 pools) | No |
+| **Taproot/SegWit metrics** | Yes | No |
+| **Agent prompts** | 6 built-in workflows | None |
+| **Actively maintained** | Yes (March 2026) | Stale (2025) |
 
 ## 60-Second Quickstart
 
