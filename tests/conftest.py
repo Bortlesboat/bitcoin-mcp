@@ -168,8 +168,106 @@ class MockRPC:
     def decodescript(self, hex_script):
         return {"asm": "OP_DUP OP_HASH160 abc123 OP_EQUALVERIFY OP_CHECKSIG", "type": "pubkeyhash"}
 
+    def getconnectioncount(self):
+        return 10
+
+    def getblock(self, blockhash, verbosity=1):
+        coinbase_tx = {
+            "txid": "coinbase_txid_0000",
+            "vin": [{"coinbase": "03a8960d00"}],
+            "vout": [{"value": 3.125, "scriptPubKey": {"type": "pubkey"}}],
+        }
+        normal_tx = {
+            "txid": "normal_txid_1111",
+            "size": 225,
+            "vsize": 141,
+            "weight": 561,
+            "vin": [{"txid": "prev_input_txid", "vout": 0, "txinwitness": ["sig"]}],
+            "vout": [{"value": 0.5, "n": 0, "scriptPubKey": {"type": "witness_v0_keyhash", "address": "bc1qtest"}}],
+            "fee": 0.0000141,
+        }
+        return {
+            "hash": blockhash,
+            "height": 890000,
+            "version": 536870912,
+            "time": 1710000000,
+            "size": 1500000,
+            "weight": 3990000,
+            "nTx": 2,
+            "tx": [coinbase_tx, normal_tx] if verbosity >= 2 else ["coinbase_txid_0000", "normal_txid_1111"],
+        }
+
+    def getrawmempool(self, verbose=False):
+        if not verbose:
+            return ["mempool_tx_1", "mempool_tx_2", "mempool_tx_3"]
+        return {
+            "mempool_tx_1": {
+                "vsize": 140, "size": 200, "weight": 560,
+                "fees": {"base": 0.00003500},
+                "fee": 0.00003500,
+            },
+            "mempool_tx_2": {
+                "vsize": 250, "size": 300, "weight": 1000,
+                "fees": {"base": 0.00001250},
+                "fee": 0.00001250,
+            },
+            "mempool_tx_3": {
+                "vsize": 180, "size": 220, "weight": 720,
+                "fees": {"base": 0.00009000},
+                "fee": 0.00009000,
+            },
+        }
+
+    def getrawtransaction(self, txid, verbose=False):
+        return {
+            "txid": txid,
+            "version": 2,
+            "size": 225,
+            "vsize": 141,
+            "weight": 561,
+            "locktime": 0,
+            "vin": [{"txid": "prev_input_txid", "vout": 0, "txinwitness": ["sig"]}],
+            "vout": [
+                {"value": 0.5, "n": 0, "scriptPubKey": {"type": "witness_v0_keyhash", "address": "bc1qtest"}},
+            ],
+            "blockhash": "0000000000000000000320283a032748cef8227873ff4872689bf23f1cda83a5",
+            "confirmations": 6,
+        }
+
+    def getblocktemplate(self, template_request=None):
+        return {
+            "height": 890001,
+            "transactions": [
+                {"txid": "tmpl_tx_1", "hash": "tmpl_tx_1", "fee": 5000, "weight": 600},
+                {"txid": "tmpl_tx_2", "hash": "tmpl_tx_2", "fee": 3000, "weight": 400},
+                {"txid": "tmpl_tx_3", "hash": "tmpl_tx_3", "fee": 8000, "weight": 800},
+            ],
+        }
+
     def sendrawtransaction(self, hex_string, max_fee_rate=0.10):
         return "abcdef1234567890" * 4
+
+    def getnewaddress(self, label="", address_type="bech32"):
+        types = {
+            "legacy": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+            "p2sh-segwit": "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy",
+            "bech32": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+            "bech32m": "bc1p5cyxnuxmeuwuvkwfem96lqzszee2457nljwp6t",
+        }
+        return types.get(address_type, types["bech32"])
+
+    def getaddressinfo(self, address):
+        return {
+            "address": address,
+            "scriptPubKey": "0014751e76e8199196d454941c45d1b3a323f1433bd6",
+            "ismine": True,
+            "pubkey": "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+            "desc": "wpkh([d34db33f/84h/0h/0h]0279be667e...)#checksum",
+            "hdkeypath": "m/84'/0'/0'/0/0",
+        }
+
+    def dumpprivkey(self, address):
+        return "KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn"
 
     def scantxoutset(self, action, descriptors):
         return {

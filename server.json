@@ -2,17 +2,17 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Bortlesboat/bitcoin-mcp",
   "title": "Bitcoin MCP",
-  "description": "MCP server for Bitcoin Core — 40 tools to query blockchain, fees, mempool, and prices",
+  "description": "MCP server for Bitcoin Core — 43 tools to query blockchain, fees, mempool, and prices",
   "repository": {
     "url": "https://github.com/Bortlesboat/bitcoin-mcp",
     "source": "github"
   },
-  "version": "0.4.0",
+  "version": "0.4.1",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "bitcoin-mcp",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "transport": {
         "type": "stdio"
       },

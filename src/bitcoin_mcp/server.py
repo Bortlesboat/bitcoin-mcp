@@ -1,4 +1,4 @@
-"""Bitcoin MCP Server — 40 tools for AI agents to query Bitcoin nodes."""
+"""Bitcoin MCP Server — 43 tools for AI agents to query Bitcoin nodes."""
 
 import argparse
 import json
@@ -286,6 +286,10 @@ def decode_raw_transaction(hex_string: str) -> str:
     Args:
         hex_string: Raw transaction in hex format
     """
+    if not re.fullmatch(r"[a-fA-F0-9]+", hex_string):
+        return json.dumps({"error": "Invalid hex string: must contain only hex characters [0-9a-fA-F]"})
+    if len(hex_string) > 2_000_000:
+        return json.dumps({"error": "Hex string too long: maximum 2,000,000 characters (1MB transaction)"})
     result = get_rpc().decoderawtransaction(hex_string)
     return json.dumps(result)
 
@@ -315,6 +319,10 @@ def send_raw_transaction(hex_string: str, max_fee_rate: float = 0.10) -> str:
         hex_string: Signed raw transaction in hex format
         max_fee_rate: Maximum fee rate in BTC/kvB to prevent accidental overpayment (default 0.10)
     """
+    if not re.fullmatch(r"[a-fA-F0-9]+", hex_string):
+        return json.dumps({"error": "Invalid hex string: must contain only hex characters [0-9a-fA-F]", "broadcast": False})
+    if len(hex_string) > 2_000_000:
+        return json.dumps({"error": "Hex string too long: maximum 2,000,000 characters (1MB transaction)", "broadcast": False})
     try:
         txid = get_rpc().sendrawtransaction(hex_string, max_fee_rate)
         return json.dumps({"txid": txid, "broadcast": True})
@@ -323,7 +331,7 @@ def send_raw_transaction(hex_string: str, max_fee_rate: float = 0.10) -> str:
 
 
 # ============================================================
-# FEE ESTIMATION (4 tools)
+# FEE ESTIMATION (5 tools)
 # ============================================================
 
 
@@ -420,7 +428,7 @@ def estimate_transaction_cost(
             url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
             req = urllib.request.Request(url, headers={"User-Agent": "bitcoin-mcp"})
             with urllib.request.urlopen(req, timeout=5) as resp:
-                price_data = json.loads(resp.read())
+                price_data = json.loads(resp.read(1_000_000))
             btc_usd = price_data.get("bitcoin", {}).get("usd")
         except Exception:
             pass  # USD conversion optional
@@ -467,7 +475,7 @@ def estimate_transaction_cost(
 
 
 # ============================================================
-# MINING (2 tools)
+# MINING (3 tools)
 # ============================================================
 
 
@@ -489,6 +497,34 @@ def analyze_next_block() -> str:
             for txid, rate, fee in data["top_5"]
         ]
     return json.dumps(data)
+
+
+@mcp.tool()
+def get_mining_pool_rankings() -> str:
+    """Get top 10 Bitcoin mining pools by hashrate share over the last week. Returns pool name, percentage of total hashrate, and block count. Use this to understand mining centralization and pool dominance."""
+    try:
+        url = "https://mempool.space/api/v1/mining/pools/1w"
+        req = urllib.request.Request(url, headers={"User-Agent": "bitcoin-mcp"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read(1_000_000))
+        pools = data.get("pools", [])
+        total_blocks = data.get("blockCount", 0)
+        top_10 = []
+        for p in pools[:10]:
+            share_pct = round((p["blockCount"] / total_blocks) * 100, 2) if total_blocks > 0 else 0
+            top_10.append({
+                "name": p.get("name", "Unknown"),
+                "hashrate_share_pct": share_pct,
+                "block_count": p["blockCount"],
+            })
+        return json.dumps({
+            "period": "1w",
+            "total_blocks": total_blocks,
+            "top_10_pools": top_10,
+            "source": "mempool.space",
+        })
+    except Exception as e:
+        return json.dumps({"error": f"Mining pool fetch failed: {e}", "hint": "mempool.space API may be down. Try again shortly."})
 
 
 # ============================================================
@@ -517,7 +553,7 @@ def get_block_count() -> str:
 
 
 # ============================================================
-# AI DEVELOPER TOOLS (10 tools)
+# AI DEVELOPER TOOLS (9 tools)
 # ============================================================
 
 
@@ -543,7 +579,7 @@ def get_situation_summary() -> str:
             url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true"
             req = urllib.request.Request(url, headers={"User-Agent": "bitcoin-mcp"})
             with urllib.request.urlopen(req, timeout=5) as resp:
-                price_data = json.loads(resp.read())
+                price_data = json.loads(resp.read(1_000_000))
             btc = price_data.get("bitcoin", {})
             btc_usd = btc.get("usd")
             btc_24h_change = round(btc.get("usd_24h_change", 0), 2)
@@ -708,10 +744,10 @@ def get_address_utxos(address: str) -> str:
 
 @mcp.tool()
 def validate_address(address: str) -> str:
-    """Validate a Bitcoin address and classify its type (P2PKH, P2SH, P2WPKH, P2WSH, P2TR).
+    """Validate a Bitcoin address and return its type (legacy/segwit/taproot), network, and script info. Use this to check if an address is valid before sending, or to identify what kind of address you're looking at.
 
     Args:
-        address: Bitcoin address to validate
+        address: Bitcoin address to validate (any format: P2PKH, P2SH, P2WPKH, P2WSH, P2TR)
     """
     try:
         result = get_rpc().validateaddress(address)
@@ -719,15 +755,17 @@ def validate_address(address: str) -> str:
         return json.dumps({"error": str(e)})
     addr_type = "unknown"
     if address.startswith("1"):
-        addr_type = "P2PKH"
+        addr_type = "P2PKH (legacy)"
     elif address.startswith("3"):
-        addr_type = "P2SH"
+        addr_type = "P2SH (script hash)"
     elif address.startswith("bc1q") and len(address) == 42:
-        addr_type = "P2WPKH"
+        addr_type = "P2WPKH (native segwit)"
     elif address.startswith("bc1q") and len(address) == 62:
-        addr_type = "P2WSH"
+        addr_type = "P2WSH (native segwit script)"
     elif address.startswith("bc1p"):
-        addr_type = "P2TR"
+        addr_type = "P2TR (taproot)"
+    elif address.startswith("tb1") or address.startswith("bcrt1"):
+        addr_type = "testnet/regtest"
     result["address_type_classification"] = addr_type
     return json.dumps(result)
 
@@ -808,7 +846,7 @@ def compare_blocks(height1: int, height2: int) -> str:
 
 
 # ============================================================
-# PRICE & SUPPLY (3 tools)
+# PRICE & SUPPLY (4 tools)
 # ============================================================
 
 
@@ -819,7 +857,7 @@ def get_btc_price() -> str:
         url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true&include_market_cap=true"
         req = urllib.request.Request(url, headers={"User-Agent": "bitcoin-mcp"})
         with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read())
+            data = json.loads(resp.read(1_000_000))
         btc = data.get("bitcoin", {})
         return json.dumps({
             "usd": btc.get("usd"),
@@ -913,6 +951,35 @@ def get_halving_countdown() -> str:
         return json.dumps({"error": str(e), "hint": hint})
 
 
+@mcp.tool()
+def get_market_sentiment() -> str:
+    """Get Bitcoin Fear & Greed Index: current value (0-100), classification (Extreme Fear/Fear/Neutral/Greed/Extreme Greed), and 7-day history. Use this to gauge market sentiment alongside price data."""
+    try:
+        url = "https://api.alternative.me/fng/?limit=7"
+        req = urllib.request.Request(url, headers={"User-Agent": "bitcoin-mcp"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read(1_000_000))
+        entries = data.get("data", [])
+        if not entries:
+            return json.dumps({"error": "No data returned from Fear & Greed API"})
+        current = entries[0]
+        history = []
+        for e in entries:
+            history.append({
+                "value": int(e["value"]),
+                "classification": e["value_classification"],
+                "timestamp": e["timestamp"],
+            })
+        return json.dumps({
+            "current_value": int(current["value"]),
+            "classification": current["value_classification"],
+            "history_7d": history,
+            "source": "alternative.me",
+        })
+    except Exception as e:
+        return json.dumps({"error": f"Fear & Greed fetch failed: {e}", "hint": "api.alternative.me may be down. Try again shortly."})
+
+
 # ============================================================
 # LIGHTNING (1 tool)
 # ============================================================
@@ -996,6 +1063,58 @@ def decode_bolt11_invoice(invoice: str) -> str:
         "data_length": len(data_part),
     }
     return json.dumps(result)
+
+
+# ============================================================
+# WALLET (1 tool)
+# ============================================================
+
+
+@mcp.tool()
+def generate_keypair(address_type: str = "bech32", include_private_key: bool = False) -> str:
+    """Generate a new Bitcoin address via the connected node's wallet. Requires wallet to be loaded. Returns the address, public key (hex), address type, and is_mine status.
+
+    SECURITY: Private keys are redacted by default because AI provider tool responses may be logged. Set include_private_key=True only if you understand the risk — the key will appear in your conversation history and should be considered potentially compromised for high-value use.
+
+    Args:
+        address_type: Address type — "legacy" (P2PKH), "p2sh-segwit" (P2SH-P2WPKH), "bech32" (P2WPKH, default), or "bech32m" (P2TR taproot)
+        include_private_key: If True, include the WIF private key in the response. Defaults to False for security.
+    """
+    try:
+        rpc = get_rpc()
+        address = rpc.getnewaddress("", address_type)
+        addr_info = rpc.getaddressinfo(address)
+
+        result = {
+            "address": address,
+            "public_key_hex": addr_info.get("pubkey"),
+            "address_type": address_type,
+            "is_mine": addr_info.get("ismine", False),
+        }
+
+        if include_private_key:
+            try:
+                privkey = rpc.dumpprivkey(address)
+            except Exception:
+                privkey = None  # Watch-only or descriptor wallet without private keys
+            result["private_key_wif"] = privkey
+            result["security_warning"] = (
+                "This private key is now in your conversation history. "
+                "Store it securely and consider this key potentially compromised for high-value use."
+            )
+        else:
+            result["private_key_wif"] = (
+                "[REDACTED — set include_private_key=true to reveal. "
+                "WARNING: will be visible in conversation history]"
+            )
+
+        return json.dumps(result)
+    except Exception as e:
+        hint = _connection_hint(e)
+        msg = str(e)
+        if "no wallet" in msg.lower() or "wallet" in msg.lower():
+            hint = "No wallet loaded. Create or load a wallet first: bitcoin-cli createwallet \"mywallet\""
+        return json.dumps({"error": msg, "hint": hint})
 
 
 # ============================================================
@@ -1245,6 +1364,10 @@ if _satoshi_api_url:
                 endpoint: API path (e.g. "/api/v1/fees", "/api/v1/blocks/latest")
                 params: Optional query parameters as key=value pairs separated by &
             """
+            if not endpoint.startswith("/api/v1/"):
+                return json.dumps({"error": "Invalid endpoint: must start with /api/v1/"})
+            if ".." in endpoint:
+                return json.dumps({"error": "Invalid endpoint: path traversal not allowed"})
             parsed_params = {}
             if params:
                 for pair in params.split("&"):
