@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bitcoin-mcp"
-version = "0.4.1"
+version = "0.4.2"
 description = "MCP server for Bitcoin Core/Knots nodes — 43 tools for AI agents to save money on fees"
 readme = "README.md"
 license = "MIT"
