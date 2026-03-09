@@ -24,7 +24,7 @@ logging.basicConfig(level=logging.INFO, stream=sys.stderr)
 logger = logging.getLogger("bitcoin-mcp")
 
 mcp = FastMCP(
-    "bitcoin-node",
+    "bitcoin",
     instructions=(
         "Query and analyze the Bitcoin network. "
         "Works automatically with a local Bitcoin Core/Knots node or the free hosted Satoshi API — no configuration needed. "
@@ -158,14 +158,14 @@ def get_rpc():
 
 @mcp.tool()
 def get_node_status() -> str:
-    """Get Bitcoin node status: chain, height, sync progress, disk usage, connections, version."""
+    """Get Bitcoin network status: chain, height, sync progress, disk usage, connections, version. In hosted API mode, reflects the API server's node."""
     status = _get_status(get_rpc())
     return status.model_dump_json()
 
 
 @mcp.tool()
 def get_peer_info() -> str:
-    """Get connected peer details: addresses, latency, services, version."""
+    """Get connected peer details: addresses, latency, services, version. In hosted API mode, shows the API server's peers."""
     peers = get_rpc().getpeerinfo()
     summary = []
     for p in peers[:20]:  # limit to 20
@@ -181,7 +181,7 @@ def get_peer_info() -> str:
 
 @mcp.tool()
 def get_network_info() -> str:
-    """Get network info: protocol version, relay fee, local addresses, warnings."""
+    """Get network info: protocol version, relay fee, connections, warnings. In hosted API mode, reflects the API server's network view."""
     info = get_rpc().getnetworkinfo()
     return json.dumps({
         "version": info["version"],
@@ -358,7 +358,7 @@ def analyze_transaction(txid: str) -> str:
     """Decode and analyze a transaction: inputs, outputs, fee rate, SegWit/Taproot flags, inscription detection.
 
     Args:
-        txid: Transaction hash (64 hex characters). Requires txindex=1 for confirmed txs.
+        txid: Transaction hash (64 hex characters). Local nodes need txindex=1 for confirmed txs; the hosted API handles this automatically.
     """
     analysis = _analyze_transaction(get_rpc(), txid)
     return analysis.model_dump_json()
@@ -399,6 +399,7 @@ def send_raw_transaction(hex_string: str, max_fee_rate: float = 0.10) -> str:
 
     WARNING: This sends a REAL transaction. Once broadcast, it cannot be reversed.
     Ensure the transaction is correctly signed and you understand the fee implications.
+    In hosted API mode, the transaction is broadcast through the Satoshi API's node.
 
     Args:
         hex_string: Signed raw transaction in hex format
@@ -619,7 +620,7 @@ def get_mining_pool_rankings() -> str:
 
 @mcp.tool()
 def get_utxo_set_info() -> str:
-    """Get UTXO set statistics: total UTXOs, total supply, disk size. WARNING: Takes 1-2 minutes."""
+    """Get UTXO set statistics: total UTXOs, total supply, disk size. Note: this is a slow operation (1-2 minutes on local nodes, may vary on hosted API)."""
     info = get_rpc().gettxoutsetinfo()
     return json.dumps({
         "height": info["height"],
@@ -815,7 +816,7 @@ def explain_script(hex_script: str) -> str:
 
 @mcp.tool()
 def get_address_utxos(address: str) -> str:
-    """Scan the UTXO set for all unspent outputs belonging to an address. WARNING: Scans full UTXO set, may take minutes.
+    """Scan the UTXO set for all unspent outputs belonging to an address. Note: scans full UTXO set, may take minutes.
 
     Args:
         address: Bitcoin address to scan
@@ -1287,7 +1288,7 @@ def resource_connection_status() -> str:
 
 @mcp.resource("bitcoin://node/status")
 def resource_node_status() -> str:
-    """Current node status summary."""
+    """Current status summary of the connected Bitcoin node (local or hosted API)."""
     status = _get_status(get_rpc())
     return status.model_dump_json()
 

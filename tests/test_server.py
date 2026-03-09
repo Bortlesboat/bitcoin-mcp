@@ -434,7 +434,7 @@ class TestCLIFlags:
             capture_output=True, text=True,
             cwd=os.path.join(os.path.expanduser("~"), "Bortlesboat", "bitcoin-mcp"),
         )
-        assert "0.4.1" in result.stdout or "0.4.1" in result.stderr
+        assert "0.4.2" in result.stdout or "0.4.2" in result.stderr
         assert result.returncode == 0
 
 

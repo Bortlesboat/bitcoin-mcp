@@ -2,17 +2,17 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Bortlesboat/bitcoin-mcp",
   "title": "Bitcoin MCP",
-  "description": "MCP server for Bitcoin Core — 43 tools to query blockchain, fees, mempool, and prices",
+  "description": "MCP server for Bitcoin — 43 tools to save money on fees, track payments, and query blockchain data. Works with zero configuration.",
   "repository": {
     "url": "https://github.com/Bortlesboat/bitcoin-mcp",
     "source": "github"
   },
-  "version": "0.4.1",
+  "version": "0.4.2",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "bitcoin-mcp",
-      "version": "0.4.1",
+      "version": "0.4.2",
       "transport": {
         "type": "stdio"
       },
@@ -39,7 +39,7 @@
           "name": "BITCOIN_NETWORK"
         },
         {
-          "description": "Remote Satoshi API URL for no-node mode (e.g. https://bitcoinsapi.com). When set, queries the hosted API instead of a local node.",
+          "description": "Override the default hosted API URL (default: https://bitcoinsapi.com). The hosted API is used automatically when no local node is detected.",
           "isRequired": false,
           "format": "string",
           "isSecret": false,

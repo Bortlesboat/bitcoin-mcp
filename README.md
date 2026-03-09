@@ -14,7 +14,7 @@
 
 MCP server that lets AI agents **save money on Bitcoin fees and save time monitoring payments**. Your agent can check whether to send now or wait, verify when a payment confirms, and query any blockchain data — without you building custom Bitcoin plumbing.
 
-Runs against **your local node** or the free hosted [Satoshi API](https://bitcoinsapi.com). No API keys needed, no rate limits, no third-party dependencies.
+**Works out of the box** — no node, no API keys, no configuration. Connects to the free hosted [Satoshi API](https://bitcoinsapi.com) automatically. If you run Bitcoin Core locally, it auto-detects and uses your node instead.
 
 **The first Bitcoin MCP server on the [official Anthropic MCP Registry](https://github.com/modelcontextprotocol/servers).** 43 tools, 6 prompts, 7 resources.
 
@@ -35,9 +35,7 @@ claude mcp add bitcoin -s user -- bitcoin-mcp
 
 That's it. **Zero configuration required.** No local node, no API keys, no env vars.
 
-bitcoin-mcp auto-detects your setup:
-1. If you have Bitcoin Core/Knots running locally → uses your node
-2. Otherwise → uses the free [Satoshi API](https://bitcoinsapi.com) automatically
+bitcoin-mcp auto-detects your setup — works immediately with the free [Satoshi API](https://bitcoinsapi.com), and uses your local node if one is running.
 
 ### Advanced: Use Your Own Node
 
@@ -246,7 +244,7 @@ Uses `get_btc_price`. Returns price, 24h change, and market cap from CoinGecko �
 ### Wallet (1 tool)
 | Tool | Description |
 |------|-------------|
-| `generate_keypair` | Generate new Bitcoin address + private key via node wallet (legacy/segwit/taproot) |
+| `generate_keypair` | Generate new Bitcoin address + private key via node wallet — **local node only** (legacy/segwit/taproot) |
 
 ### AI Developer Tools (10 tools)
 | Tool | Description |
@@ -307,8 +305,8 @@ See [`examples/`](examples/) for ready-to-use config snippets:
 | Tools / Prompts / Resources | **43 / 6 / 7** | Fewer |
 | Fee estimates in USD | **Yes** (live BTC price) | No |
 | "Should I send now?" | **Yes** (saves you money) | No |
-| Data source | Your local node | Third-party APIs |
-| No-node fallback | Satoshi API remote | N/A |
+| Zero config | **Works in 60 seconds** — no node, no API key | Setup required |
+| Data source | Free hosted API or your own node | Third-party APIs |
 | Mempool analysis | Fee bucketing, congestion, CPFP | Basic stats only |
 | Inscription detection | Yes | No |
 | Pool identification | Yes | No |
