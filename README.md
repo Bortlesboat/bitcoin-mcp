@@ -3,16 +3,20 @@
 <!-- mcp-name: io.github.Bortlesboat/bitcoin-mcp -->
 
 [![PyPI](https://img.shields.io/pypi/v/bitcoin-mcp)](https://pypi.org/project/bitcoin-mcp/)
-[![MCP Registry](https://img.shields.io/badge/MCP-Registry-blue)](https://github.com/modelcontextprotocol/servers)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-63%20passed-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-103%20passed-brightgreen)](tests/)
+[![Tools](https://img.shields.io/badge/MCP%20tools-43-blue)]()
+[![Install MCP Server](https://cursor.directory/deeplink/badge.svg)](https://cursor.directory/mcp-servers/bitcoin-mcp)
+[![MCP Registry](https://img.shields.io/badge/MCP-Registry-blue)](https://github.com/modelcontextprotocol/servers)
+
+> **Works with:** Claude Desktop Â· Cursor Â· VS Code Â· Windsurf Â· any MCP client
 
 MCP server that lets AI agents **save money on Bitcoin fees and save time monitoring payments**. Your agent can check whether to send now or wait, verify when a payment confirms, and query any blockchain data â€” without you building custom Bitcoin plumbing.
 
 Runs against **your local node** or the free hosted [Satoshi API](https://bitcoinsapi.com). No API keys needed, no rate limits, no third-party dependencies.
 
-**The first Bitcoin MCP server on the [official Anthropic MCP Registry](https://github.com/modelcontextprotocol/servers).** 40 tools, 6 prompts, 7 resources.
+**The first Bitcoin MCP server on the [official Anthropic MCP Registry](https://github.com/modelcontextprotocol/servers).** 43 tools, 6 prompts, 7 resources.
 
 ## 60-Second Quickstart
 
@@ -68,6 +72,12 @@ BITCOIN_RPC_USER=myuser
 BITCOIN_RPC_PASSWORD=mypassword
 BITCOIN_DATADIR=E:/
 BITCOIN_NETWORK=mainnet                  # mainnet (default) | testnet | signet | regtest
+```
+
+### Docker
+
+```bash
+docker run -e SATOSHI_API_URL=https://bitcoinsapi.com bitcoin-mcp
 ```
 
 ## Recipes
@@ -172,16 +182,16 @@ Uses `get_btc_price`. Returns price, 24h change, and market cap from CoinGecko â
 
 ---
 
-## 40 Tools
+## 43 Tools
 
-### Node & Network (3)
+### Node & Network (3 tools)
 | Tool | Description |
 |------|-------------|
 | `get_node_status` | Chain, height, sync progress, disk, connections, version |
 | `get_peer_info` | Connected peer addresses, latency, services |
 | `get_network_info` | Protocol version, relay fee, warnings |
 
-### Blockchain & Blocks (6)
+### Blockchain & Blocks (6 tools)
 | Tool | Description |
 |------|-------------|
 | `analyze_block` | Full analysis: pool ID, SegWit/Taproot adoption, fee distribution |
@@ -191,7 +201,7 @@ Uses `get_btc_price`. Returns price, 24h change, and market cap from CoinGecko â
 | `get_chain_tips` | Active chain, forks, and stale branches |
 | `search_blocks` | Block stats for a range of heights (max 10) |
 
-### Mempool (4)
+### Mempool (4 tools)
 | Tool | Description |
 |------|-------------|
 | `analyze_mempool` | Fee buckets, congestion level, next-block minimum fee |
@@ -199,7 +209,7 @@ Uses `get_btc_price`. Returns price, 24h change, and market cap from CoinGecko â
 | `get_mempool_info` | Quick stats: count, bytes, min relay fee |
 | `get_mempool_ancestors` | Ancestor transactions for CPFP analysis |
 
-### Transactions (4)
+### Transactions (4 tools)
 | Tool | Description |
 |------|-------------|
 | `analyze_transaction` | Full decode + inscription detection + fee analysis |
@@ -207,7 +217,7 @@ Uses `get_btc_price`. Returns price, 24h change, and market cap from CoinGecko â
 | `send_raw_transaction` | Broadcast a signed transaction (with fee safety limit) |
 | `check_utxo` | Check if a specific output is unspent |
 
-### Fee Estimation (5)
+### Fee Estimation (5 tools)
 | Tool | Description |
 |------|-------------|
 | `get_fee_estimates` | Rates for 1/3/6/25/144 block targets |
@@ -216,26 +226,33 @@ Uses `get_btc_price`. Returns price, 24h change, and market cap from CoinGecko â
 | `compare_fee_estimates` | Side-by-side urgency labels + cost for 140vB tx |
 | `estimate_transaction_cost` | **Cost in sats AND USD** by address type, inputs, outputs â€” with savings from waiting |
 
-### Mining (2)
+### Mining (3 tools)
 | Tool | Description |
 |------|-------------|
 | `get_mining_info` | Difficulty, hashrate, block size |
 | `analyze_next_block` | Block template: revenue, fee percentiles, top-fee txs |
+| `get_mining_pool_rankings` | Top 10 mining pools by hashrate share and block count (via mempool.space) |
 
-### UTXO Set (2)
+### UTXO Set (2 tools)
 | Tool | Description |
 |------|-------------|
 | `get_utxo_set_info` | Total UTXOs, supply, disk size (slow: ~1-2 min) |
 | `get_block_count` | Current block height (fast) |
 
-### Price & Supply (3)
+### Price & Supply (4 tools)
 | Tool | Description |
 |------|-------------|
 | `get_btc_price` | BTC/USD price, 24h change, market cap (CoinGecko, no API key) |
 | `get_supply_info` | Circulating supply, inflation rate, halving countdown from live node |
 | `get_halving_countdown` | Focused countdown: blocks remaining, estimated date, subsidy change |
+| `get_market_sentiment` | Bitcoin Fear & Greed Index with 7-day history (via alternative.me) |
 
-### AI Developer Tools (10)
+### Wallet (1 tool)
+| Tool | Description |
+|------|-------------|
+| `generate_keypair` | Generate new Bitcoin address + private key via node wallet (legacy/segwit/taproot) |
+
+### AI Developer Tools (10 tools)
 | Tool | Description |
 |------|-------------|
 | `get_situation_summary` | **One-call briefing**: price + fees + mempool + chain tip + typical tx cost in USD |
@@ -248,7 +265,7 @@ Uses `get_btc_price`. Returns price, 24h change, and market cap from CoinGecko â
 | `get_difficulty_adjustment` | Epoch progress, estimated adjustment percentage |
 | `compare_blocks` | Side-by-side block statistics comparison |
 
-### Lightning (1)
+### Lightning (1 tool)
 | Tool | Description |
 |------|-------------|
 | `decode_bolt11_invoice` | Decode a BOLT11 Lightning invoice (no LN node needed) |
@@ -291,7 +308,7 @@ See [`examples/`](examples/) for ready-to-use config snippets:
 | Feature | bitcoin-mcp | Competitors |
 |---------|------------|-------------|
 | Official MCP Registry | **Yes** | No |
-| Tools / Prompts / Resources | **40 / 6 / 7** | Fewer |
+| Tools / Prompts / Resources | **43 / 6 / 7** | Fewer |
 | Fee estimates in USD | **Yes** (live BTC price) | No |
 | "Should I send now?" | **Yes** (saves you money) | No |
 | Data source | Your local node | Third-party APIs |
