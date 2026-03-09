@@ -1065,3 +1065,53 @@ class TestQueryRemoteApi:
         result = json.loads(query_remote_api("/api/v1/fees"))
         assert "error" in result
         assert "API unavailable" in result["error"]
+
+
+class TestSatoshiRPC:
+    """Tests for the _SatoshiRPC fallback client."""
+
+    def test_builds_correct_url(self):
+        from bitcoin_mcp.server import _SatoshiRPC
+        client = _SatoshiRPC("https://example.com")
+        assert client._url == "https://example.com/api/v1/rpc"
+
+    def test_strips_trailing_slash(self):
+        from bitcoin_mcp.server import _SatoshiRPC
+        client = _SatoshiRPC("https://example.com/")
+        assert client._url == "https://example.com/api/v1/rpc"
+
+    def test_dynamic_method_dispatch(self):
+        """Calling any method name on _SatoshiRPC returns a callable."""
+        from bitcoin_mcp.server import _SatoshiRPC
+        client = _SatoshiRPC("https://example.com")
+        assert callable(client.getblockchaininfo)
+        assert callable(client.estimatesmartfee)
+
+    def test_get_rpc_falls_back_to_satoshi(self, monkeypatch):
+        """get_rpc() should fall back to _SatoshiRPC when no local node."""
+        import bitcoin_mcp.server as srv
+        srv._rpc = None  # reset singleton
+        # Clear all RPC env vars
+        for key in ["BITCOIN_RPC_USER", "BITCOIN_RPC_PASSWORD", "BITCOIN_DATADIR",
+                     "BITCOIN_RPC_HOST", "BITCOIN_RPC_PORT", "SATOSHI_API_URL"]:
+            monkeypatch.delenv(key, raising=False)
+        # Mock BitcoinRPC to raise (simulating no local node)
+        monkeypatch.setattr(srv, "BitcoinRPC", lambda **kw: (_ for _ in ()).throw(ConnectionError("no cookie")))
+        rpc = srv.get_rpc()
+        assert isinstance(rpc, srv._SatoshiRPC)
+        assert "bitcoinsapi.com" in rpc._url
+        srv._rpc = None  # cleanup
+
+    def test_get_rpc_respects_custom_api_url(self, monkeypatch):
+        """get_rpc() should use SATOSHI_API_URL env var for fallback."""
+        import bitcoin_mcp.server as srv
+        srv._rpc = None
+        for key in ["BITCOIN_RPC_USER", "BITCOIN_RPC_PASSWORD", "BITCOIN_DATADIR",
+                     "BITCOIN_RPC_HOST", "BITCOIN_RPC_PORT"]:
+            monkeypatch.delenv(key, raising=False)
+        monkeypatch.setenv("SATOSHI_API_URL", "https://custom.example.com")
+        monkeypatch.setattr(srv, "BitcoinRPC", lambda **kw: (_ for _ in ()).throw(ConnectionError("no cookie")))
+        rpc = srv.get_rpc()
+        assert isinstance(rpc, srv._SatoshiRPC)
+        assert "custom.example.com" in rpc._url
+        srv._rpc = None

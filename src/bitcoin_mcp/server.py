@@ -1,4 +1,4 @@
-"""Bitcoin MCP Server — 43 tools for AI agents to query Bitcoin nodes."""
+"""Bitcoin MCP Server — 43 tools for AI agents to query Bitcoin."""
 
 import argparse
 import json
@@ -26,7 +26,8 @@ logger = logging.getLogger("bitcoin-mcp")
 mcp = FastMCP(
     "bitcoin-node",
     instructions=(
-        "Query and analyze a local Bitcoin Core/Knots node. "
+        "Query and analyze the Bitcoin network. "
+        "Works automatically with a local Bitcoin Core/Knots node or the free hosted Satoshi API — no configuration needed. "
         "Provides mempool analysis, fee estimation, block inspection, "
         "transaction decoding with inscription detection, and mining insights."
     ),
@@ -34,8 +35,9 @@ mcp = FastMCP(
 
 # --- RPC connection (lazy singleton) ---
 
-_rpc: BitcoinRPC | None = None
+_rpc = None  # BitcoinRPC or _SatoshiRPC
 
+_DEFAULT_API_URL = "https://bitcoinsapi.com"
 
 NETWORK_PORTS = {
     "mainnet": 8332,
@@ -51,9 +53,80 @@ def _default_port() -> int:
     return NETWORK_PORTS.get(network, 8332)
 
 
-def get_rpc() -> BitcoinRPC:
+class _SatoshiRPC:
+    """Lightweight JSON-RPC client that proxies calls through the Satoshi API.
+
+    Drop-in replacement for BitcoinRPC when no local node is available.
+    Routes all RPC calls through the /api/v1/rpc proxy endpoint.
+    """
+
+    def __init__(self, api_url: str):
+        self._url = f"{api_url.rstrip('/')}/api/v1/rpc"
+        self._id = 0
+
+    def __getattr__(self, name: str):
+        def method(*args, **kwargs):
+            return self._call(name, *args)
+        return method
+
+    def _call(self, method: str, *args):
+        self._id += 1
+        payload = json.dumps({
+            "jsonrpc": "2.0",
+            "id": self._id,
+            "method": method,
+            "params": list(args),
+        }).encode()
+        req = urllib.request.Request(
+            self._url,
+            data=payload,
+            headers={"Content-Type": "application/json", "User-Agent": "bitcoin-mcp"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                data = json.loads(resp.read(10_000_000))
+        except urllib.error.HTTPError as e:
+            body = e.read(10_000_000).decode(errors="replace")
+            try:
+                err = json.loads(body)
+                msg = err.get("error", {}).get("message", body)
+            except Exception:
+                msg = body
+            raise ConnectionError(f"Satoshi API RPC error: {msg}") from e
+        except urllib.error.URLError as e:
+            raise ConnectionError(
+                f"Cannot reach Satoshi API at {self._url}: {e.reason}"
+            ) from e
+
+        if "error" in data and data["error"]:
+            err = data["error"]
+            raise ConnectionError(f"RPC error {err.get('code', '?')}: {err.get('message', err)}")
+
+        return data.get("result")
+
+
+def get_rpc():
+    """Return an RPC connection — local node preferred, Satoshi API fallback.
+
+    Connection priority:
+    1. Local Bitcoin Core node (if RPC credentials or cookie file found)
+    2. Satoshi API RPC proxy (SATOSHI_API_URL env var, or default https://bitcoinsapi.com)
+
+    This means bitcoin-mcp works with ZERO configuration for most users.
+    """
     global _rpc
-    if _rpc is None:
+    if _rpc is not None:
+        return _rpc
+
+    # 1. Try local node first
+    has_explicit_rpc = (
+        os.getenv("BITCOIN_RPC_USER")
+        or os.getenv("BITCOIN_RPC_PASSWORD")
+        or os.getenv("BITCOIN_DATADIR")
+        or os.getenv("BITCOIN_RPC_HOST")
+        or os.getenv("BITCOIN_RPC_PORT")
+    )
+    try:
         port_str = os.getenv("BITCOIN_RPC_PORT")
         port = int(port_str) if port_str else _default_port()
         _rpc = BitcoinRPC(
@@ -63,6 +136,18 @@ def get_rpc() -> BitcoinRPC:
             password=os.getenv("BITCOIN_RPC_PASSWORD"),
             datadir=os.getenv("BITCOIN_DATADIR"),
         )
+        logger.info("Connected to local Bitcoin node")
+        return _rpc
+    except ConnectionError:
+        if has_explicit_rpc:
+            # User explicitly configured local node but it failed — don't silently fall back
+            raise
+        # No local node found — fall through to Satoshi API
+
+    # 2. Fall back to Satoshi API RPC proxy
+    api_url = os.getenv("SATOSHI_API_URL", _DEFAULT_API_URL)
+    logger.info("No local node found — using Satoshi API (%s)", api_url)
+    _rpc = _SatoshiRPC(api_url)
     return _rpc
 
 
@@ -871,7 +956,7 @@ def get_btc_price() -> str:
 
 @mcp.tool()
 def get_supply_info() -> str:
-    """Get Bitcoin supply data: circulating supply, max supply, inflation rate, subsidy per block, and next halving estimate. Derived from live node data."""
+    """Get Bitcoin supply data: circulating supply, max supply, inflation rate, subsidy per block, and next halving estimate."""
     try:
         rpc = get_rpc()
         info = rpc.getblockchaininfo()
@@ -1072,7 +1157,7 @@ def decode_bolt11_invoice(invoice: str) -> str:
 
 @mcp.tool()
 def generate_keypair(address_type: str = "bech32", include_private_key: bool = False) -> str:
-    """Generate a new Bitcoin address via the connected node's wallet. Requires wallet to be loaded. Returns the address, public key (hex), address type, and is_mine status.
+    """Generate a new Bitcoin address via the connected node's wallet. Requires a local node with a wallet loaded — not available when using the hosted Satoshi API.
 
     SECURITY: Private keys are redacted by default because AI provider tool responses may be logged. Set include_private_key=True only if you understand the risk — the key will appear in your conversation history and should be considered potentially compromised for high-value use.
 
@@ -1082,6 +1167,12 @@ def generate_keypair(address_type: str = "bech32", include_private_key: bool = F
     """
     try:
         rpc = get_rpc()
+        if isinstance(rpc, _SatoshiRPC):
+            return json.dumps({
+                "error": "generate_keypair requires a local Bitcoin node with a wallet loaded. "
+                         "It is not available when using the hosted Satoshi API.",
+                "hint": "Run Bitcoin Core locally with a wallet, or use a dedicated wallet tool for key generation.",
+            })
         address = rpc.getnewaddress("", address_type)
         addr_info = rpc.getaddressinfo(address)
 
@@ -1125,11 +1216,25 @@ def generate_keypair(address_type: str = "bech32", include_private_key: bool = F
 def _connection_hint(error: Exception) -> str:
     """Return human-readable troubleshooting tips for common RPC errors."""
     msg = str(error).lower()
+    api_tip = (
+        " bitcoin-mcp automatically falls back to the free hosted Satoshi API "
+        "(https://bitcoinsapi.com) when no local node is available — "
+        "check your internet connection if both are failing."
+    )
+    if "no bitcoin node connection" in msg or "no rpc credentials" in msg:
+        return (
+            "No Bitcoin node detected and the hosted Satoshi API is unreachable. "
+            "Check your internet connection, or install Bitcoin Core with 'server=1' in bitcoin.conf."
+        )
+    if "satoshi api" in msg or "cannot reach" in msg:
+        return (
+            "Cannot reach the hosted Satoshi API. Check your internet connection. "
+            "If you want to use a local node instead, install Bitcoin Core with 'server=1' in bitcoin.conf."
+        )
     if isinstance(error, ConnectionRefusedError) or "connection refused" in msg:
         return (
-            "Connection refused. Check that Bitcoin Core is running and RPC is enabled. "
-            "Verify BITCOIN_RPC_HOST and BITCOIN_RPC_PORT are correct. "
-            "Ensure 'server=1' is set in bitcoin.conf."
+            "Connection refused. If using a local node, check that Bitcoin Core is running "
+            "and RPC is enabled (BITCOIN_RPC_HOST, BITCOIN_RPC_PORT, 'server=1' in bitcoin.conf)." + api_tip
         )
     if "401" in msg or "unauthorized" in msg or "authentication" in msg:
         return (
@@ -1142,31 +1247,34 @@ def _connection_hint(error: Exception) -> str:
         )
     if isinstance(error, TimeoutError) or "timeout" in msg or "timed out" in msg:
         return (
-            "Connection timed out. The node may be starting up, syncing, or unreachable. "
+            "Connection timed out. The node or API may be starting up, syncing, or unreachable. "
             "Check network connectivity and firewall rules."
         )
     if "name or service not known" in msg or "getaddrinfo" in msg:
         return (
             "Host not found. Check that BITCOIN_RPC_HOST is a valid hostname or IP address."
         )
-    return f"Unexpected error: {error}. Check your RPC configuration and node status."
+    return f"Unexpected error: {error}. Check your connection.{api_tip}"
 
 
 @mcp.resource("bitcoin://connection/status")
 def resource_connection_status() -> str:
-    """Connection status: host, port, network, and whether the node is reachable."""
+    """Connection status: mode (local node or hosted API), network, and whether the connection is working."""
     network = os.getenv("BITCOIN_NETWORK", "mainnet").lower()
-    port_str = os.getenv("BITCOIN_RPC_PORT")
-    port = int(port_str) if port_str else NETWORK_PORTS.get(network, 8332)
-    host = os.getenv("BITCOIN_RPC_HOST", "127.0.0.1")
     info = {
-        "host": host,
-        "port": port,
         "network": network,
         "connected": False,
     }
     try:
         rpc = get_rpc()
+        if isinstance(rpc, _SatoshiRPC):
+            info["mode"] = "hosted_api"
+            info["api_url"] = rpc._url.replace("/api/v1/rpc", "")
+        else:
+            info["mode"] = "local_node"
+            port_str = os.getenv("BITCOIN_RPC_PORT")
+            info["host"] = os.getenv("BITCOIN_RPC_HOST", "127.0.0.1")
+            info["port"] = int(port_str) if port_str else NETWORK_PORTS.get(network, 8332)
         chain_info = rpc.getblockchaininfo()
         info["connected"] = True
         info["chain"] = chain_info.get("chain")
@@ -1403,7 +1511,8 @@ def main():
         try:
             rpc = get_rpc()
             info = rpc.getblockchaininfo()
-            print(f"Connected to {info.get('chain', 'unknown')} chain at height {info.get('blocks', '?')}")
+            mode = "Satoshi API" if isinstance(rpc, _SatoshiRPC) else "local node"
+            print(f"OK — {mode}, {info.get('chain', 'unknown')} chain at height {info.get('blocks', '?')}")
         except Exception as e:
             print(f"Connection failed: {e}")
             hint = _connection_hint(e)
@@ -1411,7 +1520,14 @@ def main():
             sys.exit(1)
         return
 
-    logger.info("Starting Bitcoin MCP server...")
+    # Eagerly initialize connection so startup logs show the mode
+    try:
+        rpc = get_rpc()
+        mode = "Satoshi API" if isinstance(rpc, _SatoshiRPC) else "local node"
+        logger.info("Starting Bitcoin MCP server (%s)...", mode)
+    except Exception as e:
+        logger.warning("Starting Bitcoin MCP server (connection will retry on first tool call: %s)", e)
+
     mcp.run()
 
 

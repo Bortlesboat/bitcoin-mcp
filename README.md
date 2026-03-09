@@ -24,34 +24,27 @@ Runs against **your local node** or the free hosted [Satoshi API](https://bitcoi
 # 1. Install
 pip install bitcoin-mcp
 
-# 2. No node needed — use the hosted API:
-SATOSHI_API_URL=https://bitcoinsapi.com bitcoin-mcp
-
-# 3. Verify it works:
+# 2. Verify it works (auto-connects to hosted API if no local node):
 bitcoin-mcp --check
 
-# 4. Add to Claude Desktop (claude_desktop_config.json)
-{
-  "mcpServers": {
-    "bitcoin": {
-      "command": "bitcoin-mcp",
-      "env": { "SATOSHI_API_URL": "https://bitcoinsapi.com" }
-    }
-  }
-}
+# 3. Add to Claude Code:
+claude mcp add bitcoin -s user -- bitcoin-mcp
 
-# 5. Ask Claude: "Give me a Bitcoin briefing"
+# 4. Restart Claude Code, then ask: "Give me a Bitcoin briefing"
 ```
 
-That's it. No local node required.
+That's it. **Zero configuration required.** No local node, no API keys, no env vars.
+
+bitcoin-mcp auto-detects your setup:
+1. If you have Bitcoin Core/Knots running locally → uses your node
+2. Otherwise → uses the free [Satoshi API](https://bitcoinsapi.com) automatically
 
 ### Advanced: Use Your Own Node
 
-If you run Bitcoin Core or Bitcoin Knots locally, the server auto-detects it via cookie authentication:
+If you run Bitcoin Core or Bitcoin Knots locally, bitcoin-mcp auto-detects it (preferred over hosted API):
 
 ```bash
-bitcoin-mcp              # auto-detects local node
-bitcoin-mcp --check      # verify connection
+bitcoin-mcp --check      # shows "local node" or "Satoshi API"
 ```
 
 ## Install
@@ -62,12 +55,15 @@ pip install bitcoin-mcp
 
 ### Configuration
 
-Override with environment variables if needed:
+Everything works out of the box with no configuration. Override with environment variables only if needed:
 
 ```bash
-SATOSHI_API_URL=https://bitcoinsapi.com  # use hosted API (no local node needed)
-BITCOIN_RPC_HOST=127.0.0.1              # local node host
-BITCOIN_RPC_PORT=8332                    # local node port
+# Override the hosted API URL (default: https://bitcoinsapi.com)
+SATOSHI_API_URL=https://your-api.example.com
+
+# Force local node connection (skips hosted API fallback)
+BITCOIN_RPC_HOST=127.0.0.1
+BITCOIN_RPC_PORT=8332
 BITCOIN_RPC_USER=myuser
 BITCOIN_RPC_PASSWORD=mypassword
 BITCOIN_DATADIR=E:/
@@ -77,7 +73,7 @@ BITCOIN_NETWORK=mainnet                  # mainnet (default) | testnet | signet 
 ### Docker
 
 ```bash
-docker run -e SATOSHI_API_URL=https://bitcoinsapi.com bitcoin-mcp
+docker run bitcoin-mcp   # works out of the box — uses hosted API
 ```
 
 ## Recipes
@@ -333,8 +329,23 @@ bitcoin-mcp --check      # Test RPC connection and exit
 ## Requirements
 
 - Python 3.10+
-- Bitcoin Core or Bitcoin Knots with `server=1` in bitcoin.conf
-- `txindex=1` recommended for transaction lookups
+- Internet connection (uses hosted API by default) **or** local Bitcoin Core/Knots node
+
+## Troubleshooting
+
+**Tools not showing up in Claude Code?**
+```bash
+claude mcp add bitcoin -s user -- bitcoin-mcp
+```
+Then restart Claude Code. Verify with `claude mcp list`.
+
+**"Cannot reach Satoshi API" errors?**
+Check your internet connection. The hosted API at `https://bitcoinsapi.com` should be reachable. Run `bitcoin-mcp --check` to diagnose.
+
+**Want to use a specific API instance?**
+```bash
+claude mcp add bitcoin -s user -e SATOSHI_API_URL=https://your-api.example.com -- bitcoin-mcp
+```
 
 ## Related
 
