@@ -5,7 +5,7 @@
 [![PyPI](https://img.shields.io/pypi/v/bitcoin-mcp)](https://pypi.org/project/bitcoin-mcp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/tests-103%20passed-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-108%20passed-brightgreen)](tests/)
 [![Tools](https://img.shields.io/badge/MCP%20tools-43-blue)]()
 [![Install MCP Server](https://cursor.directory/deeplink/badge.svg)](https://cursor.directory/mcp-servers/bitcoin-mcp)
 [![MCP Registry](https://img.shields.io/badge/MCP-Registry-blue)](https://github.com/modelcontextprotocol/servers)
