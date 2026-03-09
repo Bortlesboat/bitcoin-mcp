@@ -17,7 +17,7 @@
 [![Prompts](https://img.shields.io/badge/prompts-6-orange)]()
 [![Resources](https://img.shields.io/badge/resources-7-orange)]()
 [![Install MCP Server](https://cursor.directory/deeplink/badge.svg)](https://cursor.directory/mcp-servers/bitcoin-mcp)
-[![MCP Registry](https://img.shields.io/badge/MCP-Registry-blue)](https://github.com/modelcontextprotocol/servers)
+[![Downloads](https://img.shields.io/pypi/dm/bitcoin-mcp)](https://pypi.org/project/bitcoin-mcp/)
 
 **43 tools** · **6 prompts** · **7 resources** · **108 tests** · **Zero config**
 
@@ -31,7 +31,7 @@ MCP server that lets AI agents **save money on Bitcoin fees and save time monito
 
 **Works out of the box** — no node, no API keys, no configuration. Connects to the free hosted [Satoshi API](https://bitcoinsapi.com) automatically. If you run Bitcoin Core locally, it auto-detects and uses your node instead.
 
-**The first Bitcoin MCP server on the [official Anthropic MCP Registry](https://github.com/modelcontextprotocol/servers).** 43 tools, 6 prompts, 7 resources — more than any other Bitcoin MCP server.
+**The most comprehensive Bitcoin MCP server.** 43 tools, 6 prompts, 7 resources — more coverage than any other Bitcoin MCP server.
 
 ## Why bitcoin-mcp?
 
@@ -330,7 +330,7 @@ See [`examples/`](examples/) for ready-to-use config snippets:
 
 | Feature | bitcoin-mcp | Competitors |
 |---------|------------|-------------|
-| Official MCP Registry | **Yes** | No |
+| PyPI package | **Yes** (`pip install`) | Manual setup |
 | Tools / Prompts / Resources | **43 / 6 / 7** | Fewer |
 | Fee estimates in USD | **Yes** (live BTC price) | No |
 | "Should I send now?" | **Yes** (saves you money) | No |
