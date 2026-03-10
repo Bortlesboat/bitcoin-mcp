@@ -1506,6 +1506,14 @@ def main():
     parser = argparse.ArgumentParser(description="Bitcoin MCP Server")
     parser.add_argument("--version", action="version", version=f"bitcoin-mcp {__version__}")
     parser.add_argument("--check", action="store_true", help="Test RPC connection and exit")
+    parser.add_argument(
+        "--transport",
+        choices=["stdio", "sse", "streamable-http"],
+        default="stdio",
+        help="Transport protocol (default: stdio)",
+    )
+    parser.add_argument("--host", default=None, help="Host for HTTP transports (default: 127.0.0.1)")
+    parser.add_argument("--port", type=int, default=None, help="Port for HTTP transports (default: 8000)")
     args = parser.parse_args()
 
     if args.check:
@@ -1529,7 +1537,11 @@ def main():
     except Exception as e:
         logger.warning("Starting Bitcoin MCP server (connection will retry on first tool call: %s)", e)
 
-    mcp.run()
+    if args.host:
+        mcp.settings.host = args.host
+    if args.port:
+        mcp.settings.port = args.port
+    mcp.run(transport=args.transport)
 
 
 if __name__ == "__main__":
