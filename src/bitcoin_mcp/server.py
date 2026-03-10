@@ -1,4 +1,4 @@
-"""Bitcoin MCP Server — 43 tools for AI agents to query Bitcoin."""
+"""Bitcoin MCP Server — 47 tools for AI agents to query Bitcoin."""
 
 import argparse
 import json
@@ -1452,6 +1452,165 @@ def track_transaction(txid: str) -> str:
         f"If confirmed, report the block it's in and confirmations. Assess whether the "
         f"fee rate was appropriate and estimate when it will confirm if still pending."
     )
+
+
+# ============================================================
+# INDEXED ADDRESS (4 tools — requires blockchain indexer)
+# ============================================================
+
+
+def _query_indexed_api(path: str) -> dict:
+    """Query the Satoshi API indexed endpoints.
+
+    Returns parsed JSON on success, or an error dict on failure.
+    """
+    api_url = os.getenv("SATOSHI_API_URL", _DEFAULT_API_URL).rstrip("/")
+    url = f"{api_url}/api/v1/indexed/{path}"
+    req = urllib.request.Request(url, headers={"User-Agent": "bitcoin-mcp"})
+    api_key = os.getenv("SATOSHI_API_KEY")
+    if api_key:
+        req.add_header("X-API-Key", api_key)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read(10_000_000))
+    except urllib.error.HTTPError as e:
+        body = e.read(10_000).decode(errors="replace")
+        try:
+            return json.loads(body)
+        except Exception:
+            return {"error": f"HTTP {e.code}: {body[:200]}"}
+    except urllib.error.URLError as e:
+        return {"error": f"Indexer unavailable: {e.reason}. The blockchain indexer may not be running — address history requires ENABLE_INDEXER=true on the Satoshi API."}
+
+
+def _query_mempool_space(path: str) -> dict:
+    """Query mempool.space API as fallback for address data.
+
+    Returns parsed JSON on success, or an error dict on failure.
+    """
+    url = f"https://mempool.space/api/{path}"
+    req = urllib.request.Request(url, headers={"User-Agent": "bitcoin-mcp"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read(10_000_000))
+    except urllib.error.HTTPError as e:
+        body = e.read(10_000).decode(errors="replace")
+        return {"error": f"mempool.space HTTP {e.code}: {body[:200]}"}
+    except urllib.error.URLError as e:
+        return {"error": f"mempool.space unavailable: {e.reason}"}
+
+
+@mcp.tool()
+def get_address_balance(address: str) -> str:
+    """Get the total balance, transaction count, and first/last seen times for a Bitcoin address.
+
+    Uses the Satoshi API blockchain indexer when available, falls back to mempool.space.
+    Returns total received, total sent, current balance, tx count, and timestamps.
+
+    Args:
+        address: Bitcoin address (any format: legacy, P2SH, bech32, bech32m)
+    """
+    result = _query_indexed_api(f"address/{address}/balance")
+    if "error" not in result:
+        return json.dumps(result)
+    # Fallback to mempool.space
+    data = _query_mempool_space(f"address/{address}")
+    if "error" in data:
+        return json.dumps(data)
+    chain = data.get("chain_stats", {})
+    mempool = data.get("mempool_stats", {})
+    balance = {
+        "source": "mempool.space",
+        "address": address,
+        "total_received": chain.get("funded_txo_sum", 0),
+        "total_sent": chain.get("spent_txo_sum", 0),
+        "balance": chain.get("funded_txo_sum", 0) - chain.get("spent_txo_sum", 0),
+        "tx_count": chain.get("tx_count", 0),
+        "unconfirmed_balance": mempool.get("funded_txo_sum", 0) - mempool.get("spent_txo_sum", 0),
+        "unconfirmed_tx_count": mempool.get("tx_count", 0),
+    }
+    return json.dumps(balance)
+
+
+@mcp.tool()
+def get_address_history(address: str, offset: int = 0, limit: int = 25) -> str:
+    """Get paginated transaction history for a Bitcoin address.
+
+    Uses the Satoshi API blockchain indexer when available, falls back to mempool.space.
+    Shows each transaction with block height, timestamp, and net value change for the address.
+    Results are ordered newest-first.
+
+    Args:
+        address: Bitcoin address (any format)
+        offset: Skip this many transactions (for pagination, default 0)
+        limit: Max transactions to return (default 25, max 100)
+    """
+    limit = min(limit, 100)
+    result = _query_indexed_api(f"address/{address}/txs?offset={offset}&limit={limit}")
+    if "error" not in result:
+        return json.dumps(result)
+    # Fallback to mempool.space (returns last 50 txs, no offset support)
+    txs = _query_mempool_space(f"address/{address}/txs")
+    if isinstance(txs, dict) and "error" in txs:
+        return json.dumps(txs)
+    if not isinstance(txs, list):
+        return json.dumps({"error": "Unexpected response from mempool.space"})
+    # Apply offset/limit manually
+    page = txs[offset:offset + limit]
+    history = {
+        "source": "mempool.space",
+        "address": address,
+        "total_available": len(txs),
+        "offset": offset,
+        "limit": limit,
+        "transactions": [
+            {
+                "txid": tx.get("txid"),
+                "block_height": tx.get("status", {}).get("block_height"),
+                "block_time": tx.get("status", {}).get("block_time"),
+                "confirmed": tx.get("status", {}).get("confirmed", False),
+                "fee": tx.get("fee"),
+                "size": tx.get("size"),
+                "weight": tx.get("weight"),
+            }
+            for tx in page
+        ],
+    }
+    return json.dumps(history)
+
+
+@mcp.tool()
+def get_indexed_transaction(txid: str) -> str:
+    """Get enriched transaction details from the blockchain indexer.
+
+    Unlike analyze_transaction (which uses raw RPC), this returns resolved input addresses,
+    spent/unspent status for each output, and block context.
+    Falls back to mempool.space when the indexer is unavailable.
+
+    Args:
+        txid: Transaction ID (64-character hex string)
+    """
+    result = _query_indexed_api(f"tx/{txid}")
+    if "error" not in result:
+        return json.dumps(result)
+    # Fallback to mempool.space
+    data = _query_mempool_space(f"tx/{txid}")
+    if isinstance(data, dict) and "error" in data:
+        return json.dumps(data)
+    if isinstance(data, dict):
+        data["source"] = "mempool.space"
+    return json.dumps(data)
+
+
+@mcp.tool()
+def get_indexer_status() -> str:
+    """Check the blockchain indexer sync progress.
+
+    Returns current indexed height, chain tip, sync percentage, blocks/sec, and ETA.
+    Use this to check if the indexer is running and how far along the initial sync is.
+    """
+    result = _query_indexed_api("status")
+    return json.dumps(result)
 
 
 # ============================================================

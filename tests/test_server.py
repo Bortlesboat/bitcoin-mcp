@@ -4,6 +4,8 @@ import json
 import os
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 
 import pytest
 
@@ -434,7 +436,7 @@ class TestCLIFlags:
             capture_output=True, text=True,
             cwd=os.path.join(os.path.expanduser("~"), "Bortlesboat", "bitcoin-mcp"),
         )
-        assert "0.4.2" in result.stdout or "0.4.2" in result.stderr
+        assert "0.5.0" in result.stdout or "0.5.0" in result.stderr
         assert result.returncode == 0
 
 
@@ -1065,6 +1067,168 @@ class TestQueryRemoteApi:
         result = json.loads(query_remote_api("/api/v1/fees"))
         assert "error" in result
         assert "API unavailable" in result["error"]
+
+
+class TestIndexedAddress:
+    """Tests for indexed address tools (get_address_balance, get_address_history, etc.)."""
+
+    def _mock_urlopen(self, response_data, monkeypatch):
+        """Helper to mock urllib.request.urlopen with a canned response."""
+        import io
+
+        class MockResponse:
+            def __init__(self, data):
+                self._data = json.dumps(data).encode()
+            def read(self, n=-1):
+                return self._data
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                pass
+
+        monkeypatch.setattr(
+            "urllib.request.urlopen",
+            lambda req, timeout=None: MockResponse(response_data),
+        )
+
+    def test_get_address_balance_success(self, mock_rpc, monkeypatch):
+        from bitcoin_mcp.server import get_address_balance
+        self._mock_urlopen({
+            "data": {
+                "address": "3HFXx9YLAQhD2mzcRRke4w3iEJ7wUETLqk",
+                "total_received": 150000000,
+                "total_sent": 100000000,
+                "balance": 50000000,
+                "tx_count": 42,
+                "first_seen": "2024-01-15T10:30:00Z",
+                "last_seen": "2026-03-09T14:00:00Z",
+            }
+        }, monkeypatch)
+        result = json.loads(get_address_balance("3HFXx9YLAQhD2mzcRRke4w3iEJ7wUETLqk"))
+        assert result["data"]["balance"] == 50000000
+        assert result["data"]["tx_count"] == 42
+
+    def test_get_address_history_success(self, mock_rpc, monkeypatch):
+        from bitcoin_mcp.server import get_address_history
+        self._mock_urlopen({
+            "data": {
+                "address": "bc1qtest",
+                "transactions": [
+                    {"txid": "abc123", "block_height": 890000, "net_value": 50000}
+                ],
+                "total": 1,
+            }
+        }, monkeypatch)
+        result = json.loads(get_address_history("bc1qtest", offset=0, limit=25))
+        assert len(result["data"]["transactions"]) == 1
+        assert result["data"]["transactions"][0]["txid"] == "abc123"
+
+    def test_get_address_history_caps_limit(self, mock_rpc, monkeypatch):
+        """Limit is capped at 100 even if caller requests more."""
+        from bitcoin_mcp.server import get_address_history
+        captured_urls = []
+
+        class MockResponse:
+            def __init__(self):
+                self._data = json.dumps({"data": {"transactions": [], "total": 0}}).encode()
+            def read(self, n=-1):
+                return self._data
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                pass
+
+        def capturing_urlopen(req, timeout=None):
+            captured_urls.append(req.full_url if hasattr(req, 'full_url') else str(req))
+            return MockResponse()
+
+        monkeypatch.setattr("urllib.request.urlopen", capturing_urlopen)
+        get_address_history("bc1qtest", offset=0, limit=500)
+        assert "limit=100" in captured_urls[0]
+
+    def test_get_indexed_transaction_success(self, mock_rpc, monkeypatch):
+        from bitcoin_mcp.server import get_indexed_transaction
+        self._mock_urlopen({
+            "data": {
+                "txid": "abc123" * 10 + "abcd",
+                "block_height": 890000,
+                "inputs": [{"address": "bc1qsender", "value": 100000}],
+                "outputs": [{"address": "bc1qrecv", "value": 90000, "spent": False}],
+            }
+        }, monkeypatch)
+        result = json.loads(get_indexed_transaction("abc123" * 10 + "abcd"))
+        assert result["data"]["block_height"] == 890000
+        assert result["data"]["outputs"][0]["spent"] is False
+
+    def test_get_indexer_status_success(self, mock_rpc, monkeypatch):
+        from bitcoin_mcp.server import get_indexer_status
+        self._mock_urlopen({
+            "data": {
+                "indexed_height": 500000,
+                "chain_tip": 890000,
+                "sync_percentage": 56.18,
+                "blocks_per_sec": 12.5,
+                "eta_hours": 8.7,
+            }
+        }, monkeypatch)
+        result = json.loads(get_indexer_status())
+        assert result["data"]["indexed_height"] == 500000
+        assert result["data"]["sync_percentage"] == 56.18
+
+    def test_indexer_unavailable_falls_back_to_mempool(self, mock_rpc, monkeypatch):
+        """When indexer and mempool.space are both unreachable, return error."""
+        from bitcoin_mcp.server import get_address_balance
+        monkeypatch.setattr(
+            "urllib.request.urlopen",
+            lambda req, timeout=None: (_ for _ in ()).throw(
+                urllib.error.URLError("Connection refused")
+            ),
+        )
+        result = json.loads(get_address_balance("bc1qtest"))
+        assert "error" in result
+        assert "unavailable" in result["error"].lower()
+
+    def test_api_key_forwarded(self, mock_rpc, monkeypatch):
+        """SATOSHI_API_KEY is sent as X-API-Key header."""
+        monkeypatch.setenv("SATOSHI_API_KEY", "test-key-123")
+        captured_headers = {}
+
+        class MockResponse:
+            def __init__(self):
+                self._data = json.dumps({"data": {}}).encode()
+            def read(self, n=-1):
+                return self._data
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                pass
+
+        def capturing_urlopen(req, timeout=None):
+            captured_headers.update(dict(req.headers))
+            return MockResponse()
+
+        import urllib.request
+        monkeypatch.setattr("urllib.request.urlopen", capturing_urlopen)
+        from bitcoin_mcp.server import get_indexer_status
+        get_indexer_status()
+        assert captured_headers.get("X-api-key") == "test-key-123"
+
+    def test_http_404_returns_error(self, mock_rpc, monkeypatch):
+        """HTTP 404 from indexer returns parsed error body."""
+        from bitcoin_mcp.server import get_address_balance
+
+        def raise_404(req, timeout=None):
+            import io
+            body = json.dumps({"error": "Address not found"}).encode()
+            raise urllib.error.HTTPError(
+                req.full_url if hasattr(req, 'full_url') else str(req),
+                404, "Not Found", {}, io.BytesIO(body)
+            )
+
+        monkeypatch.setattr("urllib.request.urlopen", raise_404)
+        result = json.loads(get_address_balance("bc1qnonexistent"))
+        assert "error" in result
+        assert "not found" in result["error"].lower()
 
 
 class TestSatoshiRPC:
