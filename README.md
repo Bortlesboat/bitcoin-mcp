@@ -156,6 +156,12 @@ Ask your AI agent:
 | `get_indexed_transaction` | Enriched tx with resolved input addresses + spent status |
 | `get_indexer_status` | Sync progress, ETA, blocks/sec |
 
+### Security
+| Tool | Description |
+|------|-------------|
+| `analyze_psbt_security` | Security analysis of a Partially Signed Bitcoin Transaction |
+| `explain_inscription_listing_security` | Security guide for ordinal inscription listings |
+
 ### Utility
 | Tool | Description |
 |------|-------------|
@@ -165,6 +171,7 @@ Ask your AI agent:
 | `decode_bolt11_invoice` | Decode a Lightning Network BOLT11 invoice |
 | `describe_rpc_command` | Help text for any Bitcoin Core RPC command |
 | `list_rpc_commands` | List all available RPC commands |
+| `query_remote_api` | Query the Satoshi API directly |
 
 </details>
 
@@ -212,6 +219,21 @@ To connect to a local Bitcoin Core node:
 - [PyPI](https://pypi.org/project/bitcoin-mcp/)
 - [GitHub](https://github.com/Bortlesboat/bitcoin-mcp)
 - [Full tool documentation](https://github.com/Bortlesboat/bitcoin-mcp/blob/main/llms-full.txt)
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines, including how to add new tools and the PR checklist.
+
+Please report security vulnerabilities privately — see [SECURITY.md](SECURITY.md).
+
+## About
+
+bitcoin-mcp is created and maintained by [Andrew Barnes](https://github.com/Bortlesboat). It is the most comprehensive Bitcoin MCP server available, bridging AI agents and Bitcoin infrastructure through the Model Context Protocol.
+
+Related projects:
+- [Satoshi API](https://bitcoinsapi.com) — Bitcoin fee intelligence API (powers zero-config mode)
+- [baip-python](https://github.com/Bortlesboat/baip-python) — Bitcoin Agent Identity Protocol
+- [bitcoin-fee-observatory](https://github.com/Bortlesboat/bitcoin-fee-observatory) — Fee market analytics dashboard
 
 ## License
 
