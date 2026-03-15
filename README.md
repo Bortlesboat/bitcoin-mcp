@@ -1,6 +1,6 @@
 # bitcoin-mcp
 
-Give any AI agent Bitcoin superpowers — fee intelligence, mempool analysis, and 43 tools. Zero config, one command.
+Give any AI agent Bitcoin superpowers — fee intelligence, mempool analysis, and 47 tools. Zero config, one command.
 
 [![PyPI](https://img.shields.io/pypi/v/bitcoin-mcp)](https://pypi.org/project/bitcoin-mcp/)
 [![Downloads](https://img.shields.io/pypi/dm/bitcoin-mcp)](https://pypi.org/project/bitcoin-mcp/)
@@ -86,7 +86,7 @@ Ask your AI agent:
 ## Full Tool Reference
 
 <details>
-<summary>All 43 tools by category</summary>
+<summary>All 47 tools by category</summary>
 
 ### Fee Intelligence
 | Tool | Description |
@@ -147,6 +147,14 @@ Ask your AI agent:
 |------|-------------|
 | `get_address_utxos` | UTXOs for an address |
 | `validate_address` | Validate and classify a Bitcoin address |
+
+### Indexed Address (requires blockchain indexer)
+| Tool | Description |
+|------|-------------|
+| `get_address_balance` | Total received/sent/balance, tx count, first/last seen |
+| `get_address_history` | Paginated transaction history with net value change |
+| `get_indexed_transaction` | Enriched tx with resolved input addresses + spent status |
+| `get_indexer_status` | Sync progress, ETA, blocks/sec |
 
 ### Utility
 | Tool | Description |
