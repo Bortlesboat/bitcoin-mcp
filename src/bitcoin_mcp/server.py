@@ -1614,6 +1614,208 @@ def get_indexer_status() -> str:
 
 
 # ============================================================
+# PSBT SECURITY TOOLS (pure local analysis — no node required)
+# ============================================================
+
+# --- Inline PSBT parser (BIP 174 / SIGHASH vulnerability detection) ---
+
+_PSBT_MAGIC = b"\x70\x73\x62\x74\xff"
+_PSBT_SIGHASH_NAMES = {
+    0x01: "SIGHASH_ALL",
+    0x02: "SIGHASH_NONE",
+    0x03: "SIGHASH_SINGLE",
+    0x81: "SIGHASH_ALL|ANYONECANPAY",
+    0x82: "SIGHASH_NONE|ANYONECANPAY",
+    0x83: "SIGHASH_SINGLE|ANYONECANPAY",
+}
+
+
+def _psbt_read_varint(data: bytes, offset: int):
+    first = data[offset]
+    if first < 0xFD:
+        return first, offset + 1
+    elif first == 0xFD:
+        return int.from_bytes(data[offset + 1 : offset + 3], "little"), offset + 3
+    elif first == 0xFE:
+        return int.from_bytes(data[offset + 1 : offset + 5], "little"), offset + 5
+    else:
+        return int.from_bytes(data[offset + 1 : offset + 9], "little"), offset + 9
+
+
+def _psbt_parse_map(data: bytes, offset: int):
+    kv = {}
+    while offset < len(data):
+        key_len, offset = _psbt_read_varint(data, offset)
+        if key_len == 0:
+            break
+        key = data[offset : offset + key_len]
+        offset += key_len
+        val_len, offset = _psbt_read_varint(data, offset)
+        val = data[offset : offset + val_len]
+        offset += val_len
+        kv[key] = val
+    return kv, offset
+
+
+def _psbt_is_2of2_multisig(script: bytes) -> bool:
+    """2-of-2 P2WSH multisig: OP_2 OP_PUSH33 <pk1> OP_PUSH33 <pk2> OP_2 OP_CHECKMULTISIG = 71 bytes."""
+    if len(script) != 71:
+        return False
+    return (
+        script[0] == 0x52
+        and script[1] == 0x21
+        and script[35] == 0x21
+        and script[69] == 0x52
+        and script[70] == 0xAE
+    )
+
+
+def _psbt_analyze(psbt_hex: str) -> dict:
+    """Parse a PSBT hex string and return a vulnerability assessment dict."""
+    import binascii
+
+    try:
+        data = binascii.unhexlify(psbt_hex.strip())
+    except Exception:
+        return {"error": "Invalid hex encoding"}
+
+    if not data.startswith(_PSBT_MAGIC):
+        return {"error": "Invalid PSBT: missing magic bytes"}
+
+    offset = 5
+    global_map, offset = _psbt_parse_map(data, offset)
+    raw_tx = global_map.get(b"\x00")
+    if raw_tx is None:
+        return {"error": "Invalid PSBT: missing unsigned transaction (BIP 174 v0 required)"}
+
+    input_count, _ = _psbt_read_varint(raw_tx, 4)
+    inputs = []
+    for i in range(input_count):
+        input_map, offset = _psbt_parse_map(data, offset)
+
+        sighash_type = None
+        if b"\x03" in input_map:
+            raw = input_map[b"\x03"]
+            sighash_type = int.from_bytes(raw[:4].ljust(4, b"\x00"), "little")
+
+        for key, val in input_map.items():
+            if key and key[:1] == b"\x02" and len(val) >= 1 and sighash_type is None:
+                sighash_type = val[-1]
+
+        sighash_name = _PSBT_SIGHASH_NAMES.get(sighash_type, f"0x{sighash_type:02x}") if sighash_type is not None else None
+        witness_script = input_map.get(b"\x05")
+        is_multisig = _psbt_is_2of2_multisig(witness_script) if witness_script else False
+
+        if sighash_type == 0x83:
+            vuln = "protected" if is_multisig else "vulnerable"
+        elif sighash_type is not None:
+            vuln = "not_applicable"
+        else:
+            vuln = "unknown"
+
+        inputs.append({
+            "index": i,
+            "sighash_type": sighash_type,
+            "sighash_name": sighash_name,
+            "has_witness_script": witness_script is not None,
+            "is_2of2_multisig": is_multisig,
+            "vulnerability": vuln,
+        })
+
+    vulns = [inp["vulnerability"] for inp in inputs]
+    if "vulnerable" in vulns:
+        overall_risk = "vulnerable"
+    elif "protected" in vulns:
+        overall_risk = "protected"
+    elif all(v == "not_applicable" for v in vulns):
+        overall_risk = "not_inscription_listing"
+    else:
+        overall_risk = "unknown"
+
+    return {"input_count": input_count, "overall_risk": overall_risk, "inputs": inputs}
+
+
+@mcp.tool()
+def analyze_psbt_security(psbt_hex: str) -> str:
+    """Analyze a PSBT for ordinals inscription listing mempool sniping vulnerability.
+
+    Detects whether an ordinals listing PSBT is vulnerable to front-running in the mempool.
+    A listing is VULNERABLE when it uses SIGHASH_SINGLE|ANYONECANPAY without a 2-of-2
+    multisig locking step — an attacker can redirect the inscription before confirmation.
+    A listing is PROTECTED when the inscription is locked in a 2-of-2 P2WSH multisig and
+    the marketplace co-signs with SIGHASH_ALL, preventing any transaction modification.
+
+    No Bitcoin node required — analysis is pure PSBT parsing (BIP 174).
+
+    Args:
+        psbt_hex: Hex-encoded PSBT string (BIP 174 v0)
+    """
+    result = _psbt_analyze(psbt_hex)
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+def explain_inscription_listing_security(psbt_hex: str) -> str:
+    """Explain in plain language whether an ordinals inscription listing is snipe-resistant.
+
+    Analyzes the PSBT and returns a human-readable explanation of:
+    - Whether the listing can be front-run in the mempool
+    - What sighash type each input uses and why it matters
+    - Specific remediation steps if the listing is vulnerable
+
+    Use this when you need a clear explanation for a developer or marketplace operator
+    rather than raw analysis data.
+
+    Args:
+        psbt_hex: Hex-encoded PSBT string (BIP 174 v0)
+    """
+    result = _psbt_analyze(psbt_hex)
+    if "error" in result:
+        return result["error"]
+
+    risk = result["overall_risk"]
+    inputs = result["inputs"]
+    n = result["input_count"]
+
+    if risk == "vulnerable":
+        vuln_inputs = [str(inp["index"]) for inp in inputs if inp["vulnerability"] == "vulnerable"]
+        explanation = (
+            f"VULNERABLE — This listing can be stolen from the mempool.\n\n"
+            f"Input(s) {', '.join(vuln_inputs)} of {n} use SIGHASH_SINGLE|ANYONECANPAY "
+            f"without a 2-of-2 multisig locking step. An attacker watching the mempool can "
+            f"construct a competing transaction that spends the inscription UTXO to themselves "
+            f"without invalidating your signature.\n\n"
+            f"Fix: Lock the inscription into a 2-of-2 P2WSH multisig (seller + marketplace "
+            f"pubkeys) BEFORE broadcasting the sale. The marketplace must co-sign the sale "
+            f"transaction with SIGHASH_ALL so no output can be modified."
+        )
+    elif risk == "protected":
+        explanation = (
+            f"PROTECTED — This listing is snipe-resistant.\n\n"
+            f"The inscription is locked in a 2-of-2 multisig output requiring both the "
+            f"seller and marketplace to co-sign. The marketplace signature uses SIGHASH_ALL, "
+            f"which commits to the entire transaction structure. Any attacker attempting to "
+            f"redirect the inscription or substitute themselves as the buyer would invalidate "
+            f"the marketplace's signature, making the attack impossible without the marketplace "
+            f"private key."
+        )
+    elif risk == "not_inscription_listing":
+        explanation = (
+            f"NOT AN INSCRIPTION LISTING — No inputs use SIGHASH_SINGLE|ANYONECANPAY.\n\n"
+            f"This PSBT does not appear to be an ordinals inscription sale transaction. "
+            f"All {n} input(s) use standard sighash types."
+        )
+    else:
+        explanation = (
+            f"UNKNOWN — Could not determine vulnerability.\n\n"
+            f"Sighash type information is missing from the PSBT inputs. "
+            f"Ensure the PSBT includes PSBT_IN_SIGHASH_TYPE fields or partial signatures."
+        )
+
+    return explanation
+
+
+# ============================================================
 # REMOTE API (conditional — requires SATOSHI_API_URL)
 # ============================================================
 

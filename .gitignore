@@ -9,3 +9,6 @@ venv/
 .mypy_cache/
 .pytest_cache/
 .mcpregistry_*
+mcp-publisher.exe
+mcp-publisher.tar.gz
+tasks/
