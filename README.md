@@ -1,6 +1,6 @@
 # bitcoin-mcp
 
-Give any AI agent Bitcoin superpowers — fee intelligence, mempool analysis, and 47 tools. Zero config, one command.
+Give any AI agent Bitcoin superpowers — fee intelligence, mempool analysis, and 49 tools. Zero config, one command.
 
 [![PyPI](https://img.shields.io/pypi/v/bitcoin-mcp)](https://pypi.org/project/bitcoin-mcp/)
 [![Downloads](https://img.shields.io/pypi/dm/bitcoin-mcp)](https://pypi.org/project/bitcoin-mcp/)
@@ -86,7 +86,7 @@ Ask your AI agent:
 ## Full Tool Reference
 
 <details>
-<summary>All 47 tools by category</summary>
+<summary>All 49 tools by category</summary>
 
 ### Fee Intelligence
 | Tool | Description |
