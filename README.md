@@ -1,4 +1,5 @@
 # bitcoin-mcp
+<!-- mcp-name: io.github.Bortlesboat/bitcoin-mcp -->
 
 Give any AI agent Bitcoin superpowers — fee intelligence, mempool analysis, and 49 tools. Zero config, one command.
 
