@@ -9,6 +9,8 @@ import urllib.request
 
 import pytest
 
+from bitcoin_mcp import __version__
+
 
 class TestNodeNetwork:
     """Tests for node and network tools (get_peer_info, get_network_info)."""
@@ -436,7 +438,7 @@ class TestCLIFlags:
             capture_output=True, text=True,
             cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         )
-        assert "0.5.0" in result.stdout or "0.5.0" in result.stderr
+        assert __version__ in result.stdout or __version__ in result.stderr
         assert result.returncode == 0
 
 
