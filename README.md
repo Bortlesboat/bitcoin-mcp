@@ -177,6 +177,14 @@ Ask your AI agent:
 
 </details>
 
+## Get More Requests (Free)
+
+bitcoin-mcp works immediately with 1,000 requests/day (anonymous). Register for a free API key to get **10,000/day (10x)**:
+
+1. Visit [bitcoinsapi.com](https://bitcoinsapi.com/#get-api-key?utm_source=github&utm_medium=readme&utm_campaign=bitcoin-mcp-register)
+2. Register for a free key (takes 10 seconds)
+3. Set the `SATOSHI_API_KEY` environment variable in your MCP config
+
 ## Configuration
 
 All environment variables are optional. bitcoin-mcp falls back to the free hosted [Satoshi API](https://bitcoinsapi.com) when no local node is configured.
