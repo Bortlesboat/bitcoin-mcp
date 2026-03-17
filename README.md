@@ -8,6 +8,7 @@ Give any AI agent Bitcoin superpowers — fee intelligence, mempool analysis, an
 [![Tests](https://github.com/Bortlesboat/bitcoin-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/Bortlesboat/bitcoin-mcp/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Powered by Satoshi API](https://img.shields.io/badge/Powered%20by-Satoshi%20API-F7931A)](https://bitcoinsapi.com?utm_source=github&utm_medium=badge&utm_campaign=bitcoin-mcp)
 
 ```bash
 pip install bitcoin-mcp
@@ -69,7 +70,7 @@ Add to `.vscode/mcp.json`:
 ## Why bitcoin-mcp?
 
 - **Fee intelligence that saves real money** — know the cheapest time to send, compare fee tiers, estimate exact costs before broadcasting
-- **Zero config** — works instantly with the free hosted [Satoshi API](https://bitcoinsapi.com), or connect your own Bitcoin Core node
+- **Zero config** — works instantly with the free hosted [Satoshi API](https://bitcoinsapi.com?utm_source=github&utm_medium=readme&utm_campaign=bitcoin-mcp), or connect your own Bitcoin Core node
 - **First Bitcoin MCP server on the [Anthropic Registry](https://registry.modelcontextprotocol.io)**
 
 ## Top Use Cases
@@ -215,7 +216,7 @@ To connect to a local Bitcoin Core node:
 
 ## Links
 
-- [Satoshi API](https://bitcoinsapi.com) — the hosted backend powering zero-config mode
+- [Satoshi API](https://bitcoinsapi.com?utm_source=github&utm_medium=readme&utm_campaign=bitcoin-mcp) — the hosted backend powering zero-config mode
 - [Anthropic MCP Registry](https://registry.modelcontextprotocol.io) — `io.github.Bortlesboat/bitcoin-mcp`
 - [PyPI](https://pypi.org/project/bitcoin-mcp/)
 - [GitHub](https://github.com/Bortlesboat/bitcoin-mcp)
@@ -232,7 +233,7 @@ Please report security vulnerabilities privately — see [SECURITY.md](SECURITY.
 bitcoin-mcp is created and maintained by [Andrew Barnes](https://github.com/Bortlesboat). It is the most comprehensive Bitcoin MCP server available, bridging AI agents and Bitcoin infrastructure through the Model Context Protocol.
 
 Related projects:
-- [Satoshi API](https://bitcoinsapi.com) — Bitcoin fee intelligence API (powers zero-config mode)
+- [Satoshi API](https://bitcoinsapi.com?utm_source=github&utm_medium=readme&utm_campaign=bitcoin-mcp) — Bitcoin fee intelligence API (powers zero-config mode)
 - [baip-python](https://github.com/Bortlesboat/baip-python) — Bitcoin Agent Identity Protocol
 - [bitcoin-fee-observatory](https://github.com/Bortlesboat/bitcoin-fee-observatory) — Fee market analytics dashboard
 
