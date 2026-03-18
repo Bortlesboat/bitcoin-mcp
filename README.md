@@ -231,7 +231,7 @@ To connect to a local Bitcoin Core node:
 - [Anthropic MCP Registry](https://registry.modelcontextprotocol.io) — `io.github.Bortlesboat/bitcoin-mcp`
 - [PyPI](https://pypi.org/project/bitcoin-mcp/)
 - [GitHub](https://github.com/Bortlesboat/bitcoin-mcp)
-- [Full tool documentation](https://github.com/Bortlesboat/bitcoin-mcp/blob/main/llms-full.txt)
+- [Full tool documentation](https://github.com/Bortlesboat/bitcoin-mcp#full-tool-reference)
 
 ## Examples
 
