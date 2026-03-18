@@ -10,6 +10,8 @@ Give any AI agent Bitcoin superpowers — fee intelligence, mempool analysis, an
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Powered by Satoshi API](https://img.shields.io/badge/Powered%20by-Satoshi%20API-F7931A)](https://bitcoinsapi.com?utm_source=github&utm_medium=badge&utm_campaign=bitcoin-mcp)
 
+**49 tools** · **116 tests** · **6 prompts** · **7 resources** · **Zero config** · **MIT licensed**
+
 ```bash
 pip install bitcoin-mcp
 ```
@@ -229,6 +231,18 @@ To connect to a local Bitcoin Core node:
 - [PyPI](https://pypi.org/project/bitcoin-mcp/)
 - [GitHub](https://github.com/Bortlesboat/bitcoin-mcp)
 - [Full tool documentation](https://github.com/Bortlesboat/bitcoin-mcp/blob/main/llms-full.txt)
+
+## Examples
+
+See the [examples/](examples/) folder for documented usage patterns:
+- [Fee Analysis](examples/fee_analysis.py) — find optimal send timing
+- [Mempool Monitor](examples/mempool_monitor.py) — track congestion
+- [Transaction Investigation](examples/transaction_investigation.py) — decode and analyze transactions
+- [Block Analysis](examples/block_analysis.py) — inspect and compare blocks
+
+## Support This Project
+
+bitcoin-mcp is free, open-source Bitcoin infrastructure. Support development through [OpenSats](https://opensats.org).
 
 ## Contributing
 
