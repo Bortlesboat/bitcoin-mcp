@@ -9,6 +9,7 @@ Give any AI agent Bitcoin superpowers — fee intelligence, mempool analysis, an
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Powered by Satoshi API](https://img.shields.io/badge/Powered%20by-Satoshi%20API-F7931A)](https://bitcoinsapi.com?utm_source=github&utm_medium=badge&utm_campaign=bitcoin-mcp)
+[![OpenSats](https://img.shields.io/badge/Support-OpenSats-F7931A)](https://opensats.org)
 
 **49 tools** · **116 tests** · **6 prompts** · **7 resources** · **Zero config** · **MIT licensed**
 
