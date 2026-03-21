@@ -12,11 +12,17 @@ requires-python = ">=3.10"
 authors = [
     { name = "Bortlesboat" },
 ]
-keywords = ["bitcoin", "mcp", "model-context-protocol", "ai", "blockchain"]
+keywords = ["bitcoin", "mcp", "model-context-protocol", "ai", "blockchain", "fee", "mempool", "rpc", "agent", "llm", "tool", "claude", "lightning", "node", "cryptocurrency", "fintech"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Office/Business :: Financial",
+    "Intended Audience :: Developers",
 ]
 dependencies = [
     "mcp[cli]>=1.2.0",
@@ -25,7 +31,12 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/Bortlesboat/bitcoin-mcp"
+Documentation = "https://github.com/Bortlesboat/bitcoin-mcp#readme"
 Repository = "https://github.com/Bortlesboat/bitcoin-mcp"
+Issues = "https://github.com/Bortlesboat/bitcoin-mcp/issues"
+Changelog = "https://github.com/Bortlesboat/bitcoin-mcp/releases"
+"PyPI" = "https://pypi.org/project/bitcoin-mcp/"
+"Satoshi API" = "https://bitcoinsapi.com"
 
 [project.scripts]
 bitcoin-mcp = "bitcoin_mcp.server:main"
