@@ -1,0 +1,27 @@
+{
+  "name": "@bortlesboat/bitcoin-mcp",
+  "version": "0.5.1",
+  "description": "The most comprehensive Bitcoin MCP server. 49 tools for AI agents: fees, mempool, blocks, transactions, mining, price, supply. Zero config.",
+  "type": "module",
+  "bin": {
+    "bitcoin-mcp": "./bin/bitcoin-mcp.js"
+  },
+  "keywords": [
+    "mcp", "model-context-protocol", "bitcoin", "ai", "blockchain",
+    "claude", "cursor", "vscode", "fee", "mempool", "mining",
+    "cryptocurrency", "agent", "llm", "tool"
+  ],
+  "author": "Bortlesboat",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bortlesboat/bitcoin-mcp.git"
+  },
+  "homepage": "https://github.com/Bortlesboat/bitcoin-mcp",
+  "bugs": {
+    "url": "https://github.com/Bortlesboat/bitcoin-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
