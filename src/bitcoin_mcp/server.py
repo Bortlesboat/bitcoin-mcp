@@ -1857,6 +1857,36 @@ if _satoshi_api_url:
 
 
 # ============================================================
+# XPUB DECODER (1 tool)
+# ============================================================
+
+
+@mcp.tool()
+def decode_xpub(xpub: str, derive_count: int = 5, account: int = 0) -> str:
+    """Decode an extended public key (xpub/ypub/zpub/tpub) and derive Bitcoin addresses.
+
+    Returns network, key type, fingerprint, depth, and derived addresses.
+    Only accepts public keys — private keys (xprv/tprv) are rejected for safety.
+    Uses pure-Python BIP32 public derivation (no external dependency required).
+
+    Args:
+        xpub: Extended public key string (xpub, ypub, zpub, tpub, upub, or vpub)
+        derive_count: Number of addresses to derive (1-20, default 5)
+        account: BIP44 account index (default 0)
+    """
+    try:
+        from bitcoin_mcp.xpub_decoder import decode_xpub as _decode
+        result = _decode(xpub, derive_count, account)
+        return json.dumps(result)
+    except ImportError as e:
+        return json.dumps({"error": f"Missing dependency: {e}"})
+    except ValueError as e:
+        return json.dumps({"error": str(e)})
+    except Exception as e:
+        return json.dumps({"error": f"Failed to decode xpub: {e}"})
+
+
+# ============================================================
 # Entry point
 # ============================================================
 
