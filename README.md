@@ -13,6 +13,8 @@ Give any AI agent Bitcoin superpowers — fee intelligence, mempool analysis, an
 
 **49 tools** · **116 tests** · **6 prompts** · **7 resources** · **Zero config** · **MIT licensed**
 
+> If bitcoin-mcp is useful to you, consider giving it a [star](https://github.com/Bortlesboat/bitcoin-mcp/stargazers) — it helps others discover the project.
+
 ```bash
 pip install bitcoin-mcp
 ```
@@ -256,8 +258,9 @@ Please report security vulnerabilities privately — see [SECURITY.md](SECURITY.
 bitcoin-mcp is created and maintained by [Andrew Barnes](https://github.com/Bortlesboat). It is the most comprehensive Bitcoin MCP server available, bridging AI agents and Bitcoin infrastructure through the Model Context Protocol.
 
 Related projects:
-- [Satoshi API](https://bitcoinsapi.com?utm_source=github&utm_medium=readme&utm_campaign=bitcoin-mcp) — Bitcoin fee intelligence API (powers zero-config mode)
-- [baip-python](https://github.com/Bortlesboat/baip-python) — Bitcoin Agent Identity Protocol
+- [Satoshi API](https://github.com/Bortlesboat/bitcoin-api) — Bitcoin fee intelligence API, 108 endpoints (powers zero-config mode)
+- [ChainPulse](https://github.com/Bortlesboat/chainpulse) — AI-powered Bitcoin network intelligence CLI
+- [BAIP-1](https://github.com/Bortlesboat/baip-python) — Bitcoin Agent Identity Protocol
 - [bitcoin-fee-observatory](https://github.com/Bortlesboat/bitcoin-fee-observatory) — Fee market analytics dashboard
 
 ## License
