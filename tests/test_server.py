@@ -1281,3 +1281,100 @@ class TestSatoshiRPC:
         assert isinstance(rpc, srv._SatoshiRPC)
         assert "custom.example.com" in rpc._url
         srv._rpc = None
+
+
+class TestDecodeXpub:
+    """Tests for the decode_xpub tool."""
+
+    # BIP32 test vector 1 - chain m
+    TEST_XPUB = "xpub661MyMwAqRbcFmUBrPBjDnnu8E3imqy6nKW3csYNVZ7SLKeVkHys6yxnQCXVXUzih5Sn8jCF37Y7j1ohNZbBchA4HTBuSRfUzV1KFC24XrE"
+
+    # Testnet tpub (same key, testnet version)
+    TEST_TPUB = "tpubD6NzVbkrYhZ4XZf3JaApRi8GTM9NmEUAKx6LyRbWqTsL5cKCpWpxFRdceEcH3ywxUyygkJi7aDNARCJJmRSRW8cMM3wD7xKiaSbj1FKDq1w"
+
+    # ypub (P2SH-P2WPKH mainnet - same key, BIP49 version)
+    TEST_YPUB = "yptdXzfnFnGDZFp7L4ZdV3DeEm57eLKsEry8t9v8DD1bpYP2rLkLXmt6FTKaFV4mxmRGS5gfXaCA2UbUTZNyRN2y6XGW4HWCBt1bJmMY5hcuaJC"
+
+    # zpub (native segwit P2WPKH mainnet - same key, BIP84 version)
+    TEST_ZPUB = "zpub6jftahH18ngZxMrRX6kydxyuUALcf5x6cYYVBfL9FZsCSXGxFcJzM7H4ScSfXJJZWMgPdgPMxSFDVb2poxRDDAXG28akcFJTXw8c2MNXudi"
+
+    # xprv for rejection test
+    TEST_XPRV = "xprv9s21ZrQH143K3HPikMeirerAaCDENPFFR6aSpV8kwDaTTXKMCkfcZBeJYureQyghw74wN1pzppB9dtnHohBdzUiyELSFuCGHLkVvu6Vg14o"
+
+    def test_decode_xpub_basic(self):
+        """decode_xpub returns correct metadata for a mainnet xpub."""
+        from bitcoin_mcp.xpub_decoder import decode_xpub
+        result = decode_xpub(self.TEST_XPUB, derive_count=1, account=0)
+        assert result["network"] == "mainnet"
+        assert result["type"] == "xpub"
+        assert result["script_type"] == "p2pkh"
+        assert result["depth"] == 0
+        assert len(result["fingerprint"]) == 8  # 4 bytes hex
+        assert result["child_number"] == 0
+        assert len(result["derived_addresses"]) == 1
+        assert "address" in result["derived_addresses"][0]
+        assert result["derived_addresses"][0]["index"] == 0
+
+    def test_decode_xpub_tpub(self):
+        """decode_xpub identifies testnet tpub correctly."""
+        from bitcoin_mcp.xpub_decoder import decode_xpub
+        result = decode_xpub(self.TEST_TPUB, derive_count=1)
+        assert result["network"] == "testnet"
+        assert result["type"] == "tpub"
+
+    def test_decode_xpub_ypub(self):
+        """decode_xpub identifies ypub (P2SH-P2WPKH) correctly."""
+        from bitcoin_mcp.xpub_decoder import decode_xpub
+        result = decode_xpub(self.TEST_YPUB, derive_count=1)
+        assert result["network"] == "mainnet"
+        assert result["type"] == "ypub"
+        assert result["script_type"] == "p2sh-p2wpkh"
+
+    def test_decode_xpub_zpub(self):
+        """decode_xpub identifies zpub (native segwit) correctly."""
+        from bitcoin_mcp.xpub_decoder import decode_xpub
+        result = decode_xpub(self.TEST_ZPUB, derive_count=1)
+        assert result["network"] == "mainnet"
+        assert result["type"] == "zpub"
+        assert result["script_type"] == "p2wpkh"
+
+    def test_decode_xpub_multiple_addresses(self):
+        """decode_xpub derives the requested number of addresses."""
+        from bitcoin_mcp.xpub_decoder import decode_xpub
+        result = decode_xpub(self.TEST_XPUB, derive_count=5)
+        assert len(result["derived_addresses"]) == 5
+        for i, addr in enumerate(result["derived_addresses"]):
+            assert addr["index"] == i
+            assert "address" in addr or "error" in addr
+
+    def test_decode_xpub_max_limit(self):
+        """decode_xpub rejects derive_count > 20."""
+        from bitcoin_mcp.xpub_decoder import decode_xpub
+        with pytest.raises(ValueError, match="derive_count must be between 1 and 20"):
+            decode_xpub(self.TEST_XPUB, derive_count=25)
+
+    def test_decode_xpub_minimum(self):
+        """decode_xpub rejects derive_count < 1."""
+        from bitcoin_mcp.xpub_decoder import decode_xpub
+        with pytest.raises(ValueError, match="derive_count must be between 1 and 20"):
+            decode_xpub(self.TEST_XPUB, derive_count=0)
+
+    def test_decode_xpub_rejects_xprv(self):
+        """decode_xpub rejects private extended keys."""
+        from bitcoin_mcp.xpub_decoder import decode_xpub
+        with pytest.raises(ValueError, match="Private extended key"):
+            decode_xpub(self.TEST_XPRV)
+
+    def test_decode_xpub_rejects_invalid(self):
+        """decode_xpub rejects invalid base58 strings."""
+        from bitcoin_mcp.xpub_decoder import decode_xpub
+        with pytest.raises(Exception):
+            decode_xpub("not_a_valid_xpub_key")
+
+    def test_decode_xpub_tool_integration(self, mock_rpc):
+        """decode_xpub MCP tool returns valid JSON."""
+        from bitcoin_mcp.server import decode_xpub
+        result = json.loads(decode_xpub(self.TEST_XPUB, derive_count=2))
+        assert result["type"] == "xpub"
+        assert result["network"] == "mainnet"
+        assert len(result["derived_addresses"]) == 2
