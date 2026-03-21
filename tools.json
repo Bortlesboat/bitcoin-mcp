@@ -1,0 +1,252 @@
+{
+  "name": "bitcoin-mcp",
+  "version": "0.5.1",
+  "tool_count": 49,
+  "tools": [
+    {
+      "name": "get_fee_recommendation",
+      "description": "Optimal fee rate with urgency tiers and savings tips",
+      "category": "Fee Intelligence"
+    },
+    {
+      "name": "get_fee_estimates",
+      "description": "Fee estimates for 1/3/6/25/144 block confirmation targets in sat/vB",
+      "category": "Fee Intelligence"
+    },
+    {
+      "name": "estimate_smart_fee",
+      "description": "Fee estimate for a specific confirmation target (1-1008 blocks)",
+      "category": "Fee Intelligence"
+    },
+    {
+      "name": "compare_fee_estimates",
+      "description": "Side-by-side fee comparison with urgency labels and cost for a typical 140 vB transaction",
+      "category": "Fee Intelligence"
+    },
+    {
+      "name": "estimate_transaction_cost",
+      "description": "Estimate transaction cost in sats and USD at different urgency levels by address type",
+      "category": "Fee Intelligence"
+    },
+    {
+      "name": "analyze_block",
+      "description": "Deep block analysis: mining pool, SegWit/Taproot adoption, fee distribution, revenue",
+      "category": "Blocks & Transactions"
+    },
+    {
+      "name": "get_block_stats",
+      "description": "Raw block statistics: median fee, total output, subsidy, weight, tx count",
+      "category": "Blocks & Transactions"
+    },
+    {
+      "name": "get_block_count",
+      "description": "Current chain height (lightweight, fast)",
+      "category": "Blocks & Transactions"
+    },
+    {
+      "name": "compare_blocks",
+      "description": "Compare block statistics between two heights side by side",
+      "category": "Blocks & Transactions"
+    },
+    {
+      "name": "search_blocks",
+      "description": "Get block statistics for a range of heights (max 10)",
+      "category": "Blocks & Transactions"
+    },
+    {
+      "name": "analyze_transaction",
+      "description": "Full transaction analysis with inscription detection",
+      "category": "Blocks & Transactions"
+    },
+    {
+      "name": "decode_raw_transaction",
+      "description": "Decode a raw transaction hex without looking up inputs",
+      "category": "Blocks & Transactions"
+    },
+    {
+      "name": "check_utxo",
+      "description": "Check if a specific transaction output is spent or unspent",
+      "category": "Blocks & Transactions"
+    },
+    {
+      "name": "send_raw_transaction",
+      "description": "Broadcast a signed raw transaction to the Bitcoin network",
+      "category": "Blocks & Transactions"
+    },
+    {
+      "name": "analyze_mempool",
+      "description": "Full mempool analysis: tx count, fee buckets, congestion level, next-block minimum fee",
+      "category": "Mempool"
+    },
+    {
+      "name": "get_mempool_info",
+      "description": "Quick mempool stats: transaction count, size in bytes, min relay fee",
+      "category": "Mempool"
+    },
+    {
+      "name": "get_mempool_entry",
+      "description": "Details for a specific unconfirmed transaction in the mempool",
+      "category": "Mempool"
+    },
+    {
+      "name": "get_mempool_ancestors",
+      "description": "Ancestor chain for a mempool transaction (useful for CPFP analysis)",
+      "category": "Mempool"
+    },
+    {
+      "name": "get_mining_info",
+      "description": "Current mining difficulty, hashrate, block size",
+      "category": "Mining"
+    },
+    {
+      "name": "analyze_next_block",
+      "description": "Predict next block: transactions, weight utilization, revenue, fee percentiles",
+      "category": "Mining"
+    },
+    {
+      "name": "get_mining_pool_rankings",
+      "description": "Top 10 mining pools by hashrate share over the last week",
+      "category": "Mining"
+    },
+    {
+      "name": "get_difficulty_adjustment",
+      "description": "Difficulty adjustment progress: blocks remaining, estimated time, projected change",
+      "category": "Mining"
+    },
+    {
+      "name": "get_halving_countdown",
+      "description": "Blocks and estimated time until next halving with subsidy change",
+      "category": "Mining"
+    },
+    {
+      "name": "get_blockchain_info",
+      "description": "Chain state, difficulty, softfork statuses, chain work, pruning",
+      "category": "Network & Status"
+    },
+    {
+      "name": "get_network_info",
+      "description": "Node version, connections, relay info",
+      "category": "Network & Status"
+    },
+    {
+      "name": "get_node_status",
+      "description": "Connection status and node health",
+      "category": "Network & Status"
+    },
+    {
+      "name": "get_peer_info",
+      "description": "Connected peer details: addresses, latency, services, version",
+      "category": "Network & Status"
+    },
+    {
+      "name": "get_chain_tips",
+      "description": "Active and stale chain tips for detecting chain splits",
+      "category": "Network & Status"
+    },
+    {
+      "name": "get_chain_tx_stats",
+      "description": "Transaction throughput over N blocks",
+      "category": "Network & Status"
+    },
+    {
+      "name": "get_utxo_set_info",
+      "description": "UTXO set size and total supply",
+      "category": "Network & Status"
+    },
+    {
+      "name": "get_supply_info",
+      "description": "Circulating supply, inflation rate, percent mined, next halving estimate",
+      "category": "Price & Market"
+    },
+    {
+      "name": "get_btc_price",
+      "description": "Current BTC/USD price from CoinGecko with 24h change and market cap",
+      "category": "Price & Market"
+    },
+    {
+      "name": "get_market_sentiment",
+      "description": "Fear & Greed Index: current value, classification, and 7-day history",
+      "category": "Price & Market"
+    },
+    {
+      "name": "get_address_utxos",
+      "description": "Scan UTXO set for all unspent outputs belonging to an address",
+      "category": "Address & UTXO"
+    },
+    {
+      "name": "validate_address",
+      "description": "Validate and classify a Bitcoin address (legacy/segwit/taproot)",
+      "category": "Address & UTXO"
+    },
+    {
+      "name": "get_address_balance",
+      "description": "Total received/sent/balance, tx count, first/last seen for an address",
+      "category": "Indexed Address"
+    },
+    {
+      "name": "get_address_history",
+      "description": "Paginated transaction history with net value change for an address",
+      "category": "Indexed Address"
+    },
+    {
+      "name": "get_indexed_transaction",
+      "description": "Enriched transaction with resolved input addresses and spent status",
+      "category": "Indexed Address"
+    },
+    {
+      "name": "get_indexer_status",
+      "description": "Blockchain indexer sync progress, ETA, blocks/sec",
+      "category": "Indexed Address"
+    },
+    {
+      "name": "analyze_psbt_security",
+      "description": "Analyze a PSBT for ordinals inscription listing sniping vulnerability",
+      "category": "Security"
+    },
+    {
+      "name": "explain_inscription_listing_security",
+      "description": "Plain-language explanation of whether an ordinals listing is snipe-resistant",
+      "category": "Security"
+    },
+    {
+      "name": "get_situation_summary",
+      "description": "Aggregated Bitcoin briefing: price, fees, mempool, chain tip in one call",
+      "category": "Utility"
+    },
+    {
+      "name": "search_blockchain",
+      "description": "Smart search: auto-detects txid, block hash, height, or address",
+      "category": "Utility"
+    },
+    {
+      "name": "generate_keypair",
+      "description": "Generate a new Bitcoin address via the connected node's wallet",
+      "category": "Utility"
+    },
+    {
+      "name": "explain_script",
+      "description": "Decode and explain a Bitcoin script's opcodes",
+      "category": "Utility"
+    },
+    {
+      "name": "decode_bolt11_invoice",
+      "description": "Decode a Lightning Network BOLT11 invoice",
+      "category": "Utility"
+    },
+    {
+      "name": "describe_rpc_command",
+      "description": "Help text for any Bitcoin Core RPC command",
+      "category": "Utility"
+    },
+    {
+      "name": "list_rpc_commands",
+      "description": "List all available RPC commands by category",
+      "category": "Utility"
+    },
+    {
+      "name": "query_remote_api",
+      "description": "Query the Satoshi API directly with optional L402 micropayments",
+      "category": "Utility"
+    }
+  ]
+}

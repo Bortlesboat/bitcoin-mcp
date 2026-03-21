@@ -1,36 +1,26 @@
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+
 startCommand:
   type: stdio
   configSchema:
     type: object
     properties:
-      BITCOIN_RPC_HOST:
+      bitcoinRpcHost:
         type: string
-        default: "127.0.0.1"
-        description: "Bitcoin Core RPC host"
-      BITCOIN_RPC_PORT:
+        description: Bitcoin Core RPC host (default 127.0.0.1)
+      bitcoinRpcPort:
         type: string
-        default: "8332"
-        description: "Bitcoin Core RPC port"
-      BITCOIN_RPC_USER:
+        description: Bitcoin Core RPC port (auto-selected by network)
+      bitcoinNetwork:
         type: string
-        description: "Bitcoin Core RPC username"
-      BITCOIN_RPC_PASSWORD:
+        default: mainnet
+        description: "Bitcoin network: mainnet, testnet, signet, or regtest"
+      satoshiApiUrl:
         type: string
-        description: "Bitcoin Core RPC password"
-      BITCOIN_DATADIR:
+        description: Override the default hosted Satoshi API URL
+      satoshiApiKey:
         type: string
-        description: "Bitcoin data directory (for cookie auth)"
-      BITCOIN_NETWORK:
-        type: string
-        default: "mainnet"
-        description: "Bitcoin network (mainnet/testnet/signet/regtest)"
-      SATOSHI_API_URL:
-        type: string
-        description: "Remote Satoshi API URL (no node needed)"
-  commandFunction: |-
-    (config) => ({
-      command: 'bitcoin-mcp',
-      env: Object.fromEntries(
-        Object.entries(config).filter(([_, v]) => v != null && v !== '')
-      )
-    })
+        description: API key for authenticated access (free at bitcoinsapi.com)
+  commandFunction:
+    |-
+    (config) => ({command:'uvx', args:['bitcoin-mcp'], env: Object.assign({}, config.bitcoinRpcHost ? {BITCOIN_RPC_HOST: config.bitcoinRpcHost} : {}, config.bitcoinRpcPort ? {BITCOIN_RPC_PORT: config.bitcoinRpcPort} : {}, config.bitcoinNetwork ? {BITCOIN_NETWORK: config.bitcoinNetwork} : {}, config.satoshiApiUrl ? {SATOSHI_API_URL: config.satoshiApiUrl} : {}, config.satoshiApiKey ? {SATOSHI_API_KEY: config.satoshiApiKey} : {})})

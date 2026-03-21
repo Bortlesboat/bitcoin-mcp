@@ -1,4 +1,4 @@
-"""Bitcoin MCP Server — 47 tools for AI agents to query Bitcoin."""
+"""Bitcoin MCP Server — 49 tools for AI agents to query Bitcoin."""
 
 import argparse
 import json
