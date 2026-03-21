@@ -1,4 +1,4 @@
-"""Bitcoin MCP Server — 47 tools for AI agents to query Bitcoin."""
+"""Bitcoin MCP Server — 49 tools for AI agents to query Bitcoin."""
 
 import argparse
 import json
@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import sys
+import time
 import urllib.request
 import urllib.error
 
@@ -1298,6 +1299,72 @@ def resource_current_fees() -> str:
     """Current fee estimates."""
     estimates = _get_fee_estimates(get_rpc())
     return json.dumps([e.model_dump() for e in estimates])
+
+
+_fee_history_cache = {"data": None, "ts": 0}
+_FEE_HISTORY_TTL = 600  # 10 minutes
+
+
+@mcp.resource("bitcoin://fees/history")
+def resource_fee_history() -> str:
+    """Fee rate history over the past 7 days with 10-minute granularity.
+
+    Returns time-series of median, minimum, and next-block fee rates
+    plus mempool congestion data. Cached for 10 minutes to avoid
+    hammering the API on repeated agent reads.
+    """
+    now = time.time()
+    cached = _fee_history_cache.get("data")
+    if cached and (now - _fee_history_cache["ts"]) < _FEE_HISTORY_TTL:
+        return cached
+    api_url = os.getenv("SATOSHI_API_URL", _DEFAULT_API_URL).rstrip("/")
+    url = f"{api_url}/api/v1/fees/history"
+    req = urllib.request.Request(url, headers={"User-Agent": "bitcoin-mcp"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            raw = json.loads(resp.read(10_000_000))
+        datapoints = raw.get("data", {}).get("datapoints", [])
+        # Downsample to hourly if the dataset is large
+        if len(datapoints) > 200:
+            hourly = datapoints[::6]  # ~hourly from 10-min buckets
+        else:
+            hourly = datapoints
+        # Compute summary stats
+        medians = [d["median_fee"] for d in hourly if d.get("median_fee") is not None]
+        next_fees = [d["next_block_fee"] for d in hourly if d.get("next_block_fee") is not None]
+        result = {
+            "source": "Satoshi API",
+            "period": "7d",
+            "buckets": len(hourly),
+            "stats": {
+                "median_fee_avg": round(sum(medians) / len(medians), 2) if medians else None,
+                "median_fee_min": min(medians) if medians else None,
+                "median_fee_max": max(medians) if medians else None,
+                "next_block_fee_avg": round(sum(next_fees) / len(next_fees), 2) if next_fees else None,
+                "next_block_fee_min": min(next_fees) if next_fees else None,
+                "next_block_fee_max": max(next_fees) if next_fees else None,
+            },
+            "data": [
+                {
+                    "ts": d.get("ts"),
+                    "next_block_fee": d.get("next_block_fee"),
+                    "median_fee": d.get("median_fee"),
+                    "low_fee": d.get("low_fee"),
+                    "mempool_vsize": d.get("mempool_vsize"),
+                    "congestion": d.get("congestion"),
+                }
+                for d in hourly
+            ],
+        }
+        serialized = json.dumps(result, separators=(",", ":"))
+        _fee_history_cache["data"] = serialized
+        _fee_history_cache["ts"] = now
+        return serialized
+    except urllib.error.HTTPError as e:
+        body = e.read(5_000).decode(errors="replace")
+        return json.dumps({"error": f"Satoshi API HTTP {e.code}: {body[:200]}"})
+    except urllib.error.URLError as e:
+        return json.dumps({"error": f"Cannot reach Satoshi API: {e.reason}"})
 
 
 @mcp.resource("bitcoin://mempool/snapshot")

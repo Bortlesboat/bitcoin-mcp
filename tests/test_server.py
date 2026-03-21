@@ -1281,3 +1281,77 @@ class TestSatoshiRPC:
         assert isinstance(rpc, srv._SatoshiRPC)
         assert "custom.example.com" in rpc._url
         srv._rpc = None
+
+
+class TestFeeHistoryResource:
+    """Tests for bitcoin://fees/history resource."""
+
+    def _mock_urlopen(self, response_data, monkeypatch):
+        """Helper to mock urllib.request.urlopen with a canned JSON response."""
+        class MockResponse:
+            def __init__(self, data):
+                self._data = json.dumps(data).encode()
+            def read(self, n=-1):
+                return self._data
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                pass
+        monkeypatch.setattr(
+            "urllib.request.urlopen",
+            lambda req, timeout=None: MockResponse(response_data),
+        )
+
+    def test_fee_history_success(self, monkeypatch):
+        """Happy path: returns downsampled history with stats."""
+        import bitcoin_mcp.server as srv
+        srv._fee_history_cache = {"data": None, "ts": 0}  # clear cache
+        datapoints = [
+            {"ts": "2026-03-19 12:00:00", "next_block_fee": 3.5, "median_fee": 2.1,
+             "low_fee": 1.0, "mempool_vsize": 500000, "congestion": "low"},
+            {"ts": "2026-03-19 13:00:00", "next_block_fee": 5.0, "median_fee": 3.2,
+             "low_fee": 1.5, "mempool_vsize": 1200000, "congestion": "normal"},
+            {"ts": "2026-03-19 14:00:00", "next_block_fee": 8.0, "median_fee": 6.0,
+             "low_fee": 2.0, "mempool_vsize": 3000000, "congestion": "high"},
+        ]
+        self._mock_urlopen({"data": {"datapoints": datapoints}}, monkeypatch)
+        from bitcoin_mcp.server import resource_fee_history
+        result = json.loads(resource_fee_history())
+        assert result["source"] == "Satoshi API"
+        assert result["period"] == "7d"
+        assert result["buckets"] == 3
+        assert "stats" in result
+        assert result["stats"]["median_fee_avg"] == 3.77  # (2.1+3.2+6.0)/3
+        assert result["stats"]["median_fee_min"] == 2.1
+        assert result["stats"]["median_fee_max"] == 6.0
+        assert len(result["data"]) == 3
+        assert result["data"][0]["ts"] == "2026-03-19 12:00:00"
+
+    def test_fee_history_downsamples_large_dataset(self, monkeypatch):
+        """When >200 datapoints, result should be downsampled to ~hourly."""
+        import bitcoin_mcp.server as srv
+        srv._fee_history_cache = {"data": None, "ts": 0}
+        datapoints = [
+            {"ts": f"2026-03-{13+i//144:02d} {i//6:02d}:{(i%6)*10:02d}:00",
+             "next_block_fee": 2.0 + i * 0.01, "median_fee": 1.5 + i * 0.01,
+             "low_fee": 1.0, "mempool_vsize": 500000, "congestion": "low"}
+            for i in range(300)
+        ]
+        self._mock_urlopen({"data": {"datapoints": datapoints}}, monkeypatch)
+        from bitcoin_mcp.server import resource_fee_history
+        result = json.loads(resource_fee_history())
+        assert result["buckets"] == 50  # 300 / 6 = 50
+
+    def test_fee_history_handles_network_error(self, monkeypatch):
+        """Returns error dict when API is unreachable."""
+        import bitcoin_mcp.server as srv
+        srv._fee_history_cache = {"data": None, "ts": 0}
+        import urllib.error
+
+        def raise_url_error(*a, **k):
+            raise urllib.error.URLError("connection refused")
+        monkeypatch.setattr("urllib.request.urlopen", raise_url_error)
+        from bitcoin_mcp.server import resource_fee_history
+        result = json.loads(resource_fee_history())
+        assert "error" in result
+        assert "Cannot reach" in result["error"]
