@@ -72,6 +72,25 @@ Add to `.vscode/mcp.json`:
 }
 ```
 
+### Docker
+
+```bash
+docker build -t bitcoin-mcp .
+docker run -i bitcoin-mcp
+```
+
+Or with docker compose:
+
+```bash
+docker compose up
+```
+
+Pass environment variables to connect to a local Bitcoin Core node or set your API key:
+
+```bash
+docker run -i -e SATOSHI_API_KEY=your-key bitcoin-mcp
+```
+
 ## Why bitcoin-mcp?
 
 - **Fee intelligence that saves real money** — know the cheapest time to send, compare fee tiers, estimate exact costs before broadcasting

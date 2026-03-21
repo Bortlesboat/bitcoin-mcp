@@ -1,0 +1,10 @@
+services:
+  bitcoin-mcp:
+    build: .
+    stdin_open: true
+    environment:
+      - BITCOIN_RPC_HOST=${BITCOIN_RPC_HOST:-}
+      - BITCOIN_RPC_PORT=${BITCOIN_RPC_PORT:-}
+      - BITCOIN_NETWORK=${BITCOIN_NETWORK:-mainnet}
+      - SATOSHI_API_URL=${SATOSHI_API_URL:-}
+      - SATOSHI_API_KEY=${SATOSHI_API_KEY:-}
