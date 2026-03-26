@@ -102,24 +102,24 @@ class L402Client:
         except Exception as e:
             raise L402ProtocolError(f"Failed to extract payment hash: {e}")
 
-    def close(self):
+    def close(self) -> None:
         self.client.close()
 
-    def __enter__(self):
+    def __enter__(self) -> "L402Client":
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, *args: object) -> None:
         self.close()
 
 
 class L402PaymentRequired(Exception):
-    def __init__(self, response):
+    def __init__(self, response: object) -> None:
         self.response = response
         super().__init__(f"Payment required: {response.status_code}")
 
 
 class L402PriceTooHigh(Exception):
-    def __init__(self, price: int, max_price: int):
+    def __init__(self, price: int, max_price: int) -> None:
         self.price = price
         self.max_price = max_price
         super().__init__(f"Price {price} sats exceeds max {max_price} sats")
