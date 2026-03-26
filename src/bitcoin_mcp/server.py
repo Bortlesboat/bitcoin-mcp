@@ -821,6 +821,9 @@ def get_address_utxos(address: str) -> str:
     Args:
         address: Bitcoin address to scan
     """
+    err = _validate_address_format(address)
+    if err:
+        return json.dumps({"error": err, "hint": "Provide a valid Bitcoin address (e.g., 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa or bc1q...)."})
     try:
         result = get_rpc().scantxoutset("start", [f"addr({address})"])
     except Exception as e:
@@ -835,6 +838,9 @@ def validate_address(address: str) -> str:
     Args:
         address: Bitcoin address to validate (any format: P2PKH, P2SH, P2WPKH, P2WSH, P2TR)
     """
+    err = _validate_address_format(address)
+    if err:
+        return json.dumps({"error": err, "hint": "Provide a valid Bitcoin address (e.g., 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa or bc1q...).", "isvalid": False})
     try:
         result = get_rpc().validateaddress(address)
     except Exception as e:
@@ -1256,6 +1262,19 @@ def _connection_hint(error: Exception) -> str:
             "Host not found. Check that BITCOIN_RPC_HOST is a valid hostname or IP address."
         )
     return f"Unexpected error: {error}. Check your connection.{api_tip}"
+
+
+def _validate_address_format(address: str) -> str | None:
+    """Return an error message if address is obviously invalid, else None."""
+    if not address or not address.strip():
+        return "Address cannot be empty."
+    address = address.strip()
+    if len(address) < 25 or len(address) > 90:
+        return f"Invalid address length ({len(address)}). Bitcoin addresses are 25-90 characters."
+    valid_prefixes = ("1", "3", "bc1q", "bc1p", "tb1q", "tb1p", "m", "n", "2", "bcrt1")
+    if not any(address.startswith(p) for p in valid_prefixes):
+        return f"Unrecognized address format. Expected prefix: {', '.join(valid_prefixes)}"
+    return None
 
 
 @mcp.resource("bitcoin://connection/status")
