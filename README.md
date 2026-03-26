@@ -71,6 +71,24 @@ Add to `.vscode/mcp.json`:
   }
 }
 ```
+### Zed
+
+Add to your Zed settings JSON (open with `Cmd-Shift-P` → "Open Settings" or edit `~/.config/zed/settings.json`):
+
+```json
+{
+  "context_servers": {
+    "bitcoin": {
+      "command": {
+        "path": "uvx",
+        "args": ["bitcoin-mcp"]
+      },
+      "settings": {}
+    }
+  }
+}
+```
+
 
 ### Docker
 
