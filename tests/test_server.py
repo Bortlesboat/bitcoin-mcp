@@ -1281,3 +1281,62 @@ class TestSatoshiRPC:
         assert isinstance(rpc, srv._SatoshiRPC)
         assert "custom.example.com" in rpc._url
         srv._rpc = None
+
+
+class TestValidateAddressFormat:
+    """Tests for the _validate_address_format helper (issue #10)."""
+
+    def test_empty_string_returns_error(self):
+        from bitcoin_mcp.server import _validate_address_format
+        err = _validate_address_format("")
+        assert err is not None
+        assert "empty" in err.lower()
+
+    def test_whitespace_only_returns_error(self):
+        from bitcoin_mcp.server import _validate_address_format
+        err = _validate_address_format("   ")
+        assert err is not None
+        assert "empty" in err.lower()
+
+    def test_short_string_returns_error(self):
+        from bitcoin_mcp.server import _validate_address_format
+        err = _validate_address_format("abc")
+        assert err is not None
+        assert "length" in err.lower()
+
+    def test_bad_prefix_returns_error(self):
+        from bitcoin_mcp.server import _validate_address_format
+        err = _validate_address_format("0xdeadbeef1234567890abcdef")
+        assert err is not None
+        assert "prefix" in err.lower()
+
+    def test_url_returns_error(self):
+        from bitcoin_mcp.server import _validate_address_format
+        err = _validate_address_format("https://example.com")
+        assert err is not None
+        assert "prefix" in err.lower()
+
+    def test_valid_p2pkh_passes(self):
+        from bitcoin_mcp.server import _validate_address_format
+        err = _validate_address_format("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")
+        assert err is None
+
+    def test_valid_p2sh_passes(self):
+        from bitcoin_mcp.server import _validate_address_format
+        err = _validate_address_format("3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy")
+        assert err is None
+
+    def test_valid_bech32_passes(self):
+        from bitcoin_mcp.server import _validate_address_format
+        err = _validate_address_format("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4")
+        assert err is None
+
+    def test_valid_taproot_passes(self):
+        from bitcoin_mcp.server import _validate_address_format
+        err = _validate_address_format("bc1p5cyxnuxmeuwuvkwfem96lqzszee656smqkqq2hnw66g")
+        assert err is None
+
+    def test_valid_testnet_passes(self):
+        from bitcoin_mcp.server import _validate_address_format
+        err = _validate_address_format("tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx")
+        assert err is None
