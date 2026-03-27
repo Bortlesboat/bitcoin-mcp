@@ -440,6 +440,37 @@ class TestCLIFlags:
         )
         assert __version__ in result.stdout or __version__ in result.stderr
         assert result.returncode == 0
+    
+    @pytest.mark.parametrize(
+        "level",
+        ["DEBUG", "INFO", "WARNING", "ERROR"],
+    )
+    def test_log_level_flag_accepts_values(self, level):
+        """
+        Verify the --log-level flag is accepted by argparse for all valid values.
+        """
+        result = subprocess.run(
+            [sys.executable, "-m", "bitcoin_mcp.server", "--log-level", level, "--check"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode in (0, 1)
+
+    @pytest.mark.parametrize(
+        "level",
+        ["HELLO", "SORRY", "ERR", "WARN"],
+    )
+    def test_log_level_flag_rejects_invalid(self, level):
+        """
+        Verify argparse rejects invalid --log-level values with returncode 2.
+        """
+        result = subprocess.run(
+            [sys.executable, "-m", "bitcoin_mcp.server", "--log-level", level, "--check"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 2
+        assert f"invalid choice: '{level}'" in result.stderr
 
 
 class TestMultiNetworkPort:
