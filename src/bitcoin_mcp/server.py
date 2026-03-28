@@ -20,7 +20,6 @@ from bitcoinlib_rpc.status import get_status as _get_status
 from bitcoinlib_rpc.transactions import analyze_transaction as _analyze_transaction
 from bitcoinlib_rpc.utils import fee_recommendation
 
-logging.basicConfig(level=logging.INFO, stream=sys.stderr)
 logger = logging.getLogger("bitcoin-mcp")
 
 mcp = FastMCP(
@@ -1875,7 +1874,15 @@ def main():
     )
     parser.add_argument("--host", default=None, help="Host for HTTP transports (default: 127.0.0.1)")
     parser.add_argument("--port", type=int, default=None, help="Port for HTTP transports (default: 8000)")
+    parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default="INFO",
+        help="Logging verbosity (default: INFO)",
+    )
     args = parser.parse_args()
+
+    logging.basicConfig(level=getattr(logging, args.log_level), stream=sys.stderr)
 
     if args.check:
         try:

@@ -441,6 +441,29 @@ class TestCLIFlags:
         assert __version__ in result.stdout or __version__ in result.stderr
         assert result.returncode == 0
 
+    def test_log_level_accepted(self):
+        """--log-level flag is accepted by argparse without error."""
+        for level in ["DEBUG", "INFO", "WARNING", "ERROR"]:
+            result = subprocess.run(
+                [sys.executable, "-m", "bitcoin_mcp.server", "--log-level", level, "--check"],
+                capture_output=True, text=True,
+                env={**os.environ, "SATOSHI_API_URL": "https://bitcoinsapi.com"},
+                cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                timeout=15,
+            )
+            # Should not fail with argparse error; may fail on connection but that's OK
+            assert "unrecognized arguments" not in result.stderr, f"Rejected --log-level {level}"
+
+    def test_invalid_log_level_rejected(self):
+        """--log-level with invalid value is rejected."""
+        result = subprocess.run(
+            [sys.executable, "-m", "bitcoin_mcp.server", "--log-level", "INVALID"],
+            capture_output=True, text=True,
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        )
+        assert result.returncode != 0
+        assert "invalid choice" in result.stderr.lower() or "INVALID" in result.stderr
+
 
 class TestMultiNetworkPort:
     """Tests for multi-network port selection."""
