@@ -7,12 +7,15 @@ Handles the full L402 flow:
 4. Cache valid tokens for reuse
 """
 
+from __future__ import annotations
+
 import base64
 import hashlib
 import json
 import logging
 import os
 import time
+from typing import Self
 
 log = logging.getLogger(__name__)
 
@@ -102,24 +105,24 @@ class L402Client:
         except Exception as e:
             raise L402ProtocolError(f"Failed to extract payment hash: {e}")
 
-    def close(self):
+    def close(self) -> None:
         self.client.close()
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: object) -> None:
         self.close()
 
 
 class L402PaymentRequired(Exception):
-    def __init__(self, response):
+    def __init__(self, response: httpx.Response) -> None:
         self.response = response
         super().__init__(f"Payment required: {response.status_code}")
 
 
 class L402PriceTooHigh(Exception):
-    def __init__(self, price: int, max_price: int):
+    def __init__(self, price: int, max_price: int) -> None:
         self.price = price
         self.max_price = max_price
         super().__init__(f"Price {price} sats exceeds max {max_price} sats")
