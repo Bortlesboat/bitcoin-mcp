@@ -11,6 +11,7 @@ import urllib.error
 
 from mcp.server.fastmcp import FastMCP
 
+from .address_validation import _validate_address_format
 from bitcoinlib_rpc import BitcoinRPC
 from bitcoinlib_rpc.blocks import analyze_block as _analyze_block
 from bitcoinlib_rpc.fees import get_fee_estimates as _get_fee_estimates
@@ -821,6 +822,9 @@ def get_address_utxos(address: str) -> str:
     Args:
         address: Bitcoin address to scan
     """
+    error = _validate_address_format(address)
+    if error:
+        return json.dumps({"error": f"Invalid address: {error}"})
     try:
         result = get_rpc().scantxoutset("start", [f"addr({address})"])
     except Exception as e:
@@ -835,6 +839,9 @@ def validate_address(address: str) -> str:
     Args:
         address: Bitcoin address to validate (any format: P2PKH, P2SH, P2WPKH, P2WSH, P2TR)
     """
+    error = _validate_address_format(address)
+    if error:
+        return json.dumps({"error": f"Invalid address: {error}"})
     try:
         result = get_rpc().validateaddress(address)
     except Exception as e:
@@ -1510,6 +1517,9 @@ def get_address_balance(address: str) -> str:
     Args:
         address: Bitcoin address (any format: legacy, P2SH, bech32, bech32m)
     """
+    error = _validate_address_format(address)
+    if error:
+        return json.dumps({"error": f"Invalid address: {error}"})
     result = _query_indexed_api(f"address/{address}/balance")
     if "error" not in result:
         return json.dumps(result)
@@ -1545,6 +1555,9 @@ def get_address_history(address: str, offset: int = 0, limit: int = 25) -> str:
         offset: Skip this many transactions (for pagination, default 0)
         limit: Max transactions to return (default 25, max 100)
     """
+    error = _validate_address_format(address)
+    if error:
+        return json.dumps({"error": f"Invalid address: {error}"})
     limit = min(limit, 100)
     result = _query_indexed_api(f"address/{address}/txs?offset={offset}&limit={limit}")
     if "error" not in result:
