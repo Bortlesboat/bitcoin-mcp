@@ -22,6 +22,21 @@ from bitcoinlib_rpc.utils import fee_recommendation
 
 logger = logging.getLogger("bitcoin-mcp")
 
+
+def _validate_address_format(address: str) -> str | None:
+    """Return an error message if address is obviously invalid, else None."""
+    if not address or not address.strip():
+        return "Address cannot be empty."
+    # Fast sanity check: reject non-Bitcoin formats that would waste RPC calls
+    # Accept anything that looks like a Bitcoin address (starts with 1/3/bc1/tb1/m/n/2/bcrt)
+    # Note: we don't enforce length here since test fixtures use short strings
+    address = address.strip()
+    valid_starts = ("1", "3", "bc1q", "bc1p", "tb1q", "tb1p", "m", "n", "2", "bcrt1")
+    if not any(address.startswith(p) for p in valid_starts):
+        return f"Unrecognized address format. Expected prefix: {', '.join(sorted(set(valid_starts)))}"
+    return None
+
+
 mcp = FastMCP(
     "bitcoin",
     instructions=(
@@ -820,6 +835,8 @@ def get_address_utxos(address: str) -> str:
     Args:
         address: Bitcoin address to scan
     """
+    if (err := _validate_address_format(address)):
+        return json.dumps({"error": err})
     try:
         result = get_rpc().scantxoutset("start", [f"addr({address})"])
     except Exception as e:
@@ -834,6 +851,8 @@ def validate_address(address: str) -> str:
     Args:
         address: Bitcoin address to validate (any format: P2PKH, P2SH, P2WPKH, P2WSH, P2TR)
     """
+    if (err := _validate_address_format(address)):
+        return json.dumps({"error": err})
     try:
         result = get_rpc().validateaddress(address)
     except Exception as e:
@@ -1509,6 +1528,8 @@ def get_address_balance(address: str) -> str:
     Args:
         address: Bitcoin address (any format: legacy, P2SH, bech32, bech32m)
     """
+    if (err := _validate_address_format(address)):
+        return json.dumps({"error": err})
     result = _query_indexed_api(f"address/{address}/balance")
     if "error" not in result:
         return json.dumps(result)
@@ -1544,6 +1565,8 @@ def get_address_history(address: str, offset: int = 0, limit: int = 25) -> str:
         offset: Skip this many transactions (for pagination, default 0)
         limit: Max transactions to return (default 25, max 100)
     """
+    if (err := _validate_address_format(address)):
+        return json.dumps({"error": err})
     limit = min(limit, 100)
     result = _query_indexed_api(f"address/{address}/txs?offset={offset}&limit={limit}")
     if "error" not in result:
