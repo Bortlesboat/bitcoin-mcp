@@ -1,0 +1,23 @@
+{
+  "_comment": "Zero config — auto-connects to hosted API if no local node found",
+  "mcpServers": {
+    "bitcoin": {
+      "command": "uvx",
+      "args": ["bitcoin-mcp"]
+    }
+  },
+
+  "_comment_local": "To force a specific local node (uncomment and replace the above)",
+  "_local_example": {
+    "bitcoin": {
+      "command": "uvx",
+      "args": ["bitcoin-mcp"],
+      "env": {
+        "BITCOIN_RPC_HOST": "127.0.0.1",
+        "BITCOIN_RPC_PORT": "8332",
+        "BITCOIN_RPC_USER": "your_rpc_user",
+        "BITCOIN_RPC_PASSWORD": "your_rpc_password"
+      }
+    }
+  }
+}
