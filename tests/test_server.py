@@ -203,6 +203,62 @@ class TestFees:
         assert result["fee_rate_btc_kvb"] == 0.00003
         assert result["fee_rate_sat_vb"] == 3.0
 
+    def test_resource_fees_history_success(self, mock_rpc, monkeypatch):
+        """bitcoin://fees/history returns historical fee data from indexed API."""
+        import urllib.error
+        import io
+        import json
+
+        mock_response = io.BytesIO(json.dumps({
+            "period": "7d",
+            "buckets": [
+                {"timestamp": 1710000000, "fast_sat_vb": 45, "medium_sat_vb": 22, "slow_sat_vb": 8},
+                {"timestamp": 1710036000, "fast_sat_vb": 50, "medium_sat_vb": 25, "slow_sat_vb": 10},
+            ],
+            "stats": {"7d_avg_fast": 38, "7d_min_fast": 12, "7d_max_fast": 112}
+        }).encode())
+
+        class MockResponse:
+            def read(self, n=None):
+                return mock_response.read(n)
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                pass
+
+        def mock_urlopen(req, timeout=None):
+            return MockResponse()
+
+        monkeypatch.setattr("urllib.request.urlopen", mock_urlopen)
+
+        from bitcoin_mcp.server import resource_fees_history
+        result = json.loads(resource_fees_history())
+        assert result["period"] == "7d"
+        assert len(result["buckets"]) == 2
+        assert result["buckets"][0]["fast_sat_vb"] == 45
+        assert result["stats"]["7d_avg_fast"] == 38
+
+    def test_resource_fees_history_api_error_fallback(self, mock_rpc, monkeypatch):
+        """bitcoin://fees/history returns graceful error when indexed API fails."""
+        import urllib.error
+
+        def mock_urlopen(req, timeout=None):
+            raise urllib.error.HTTPError(
+                url="https://bitcoinsapi.com/api/v1/fees/history",
+                code=502,
+                msg="Bad Gateway",
+                hdrs={},
+                fp=None
+            )
+
+        monkeypatch.setattr("urllib.request.urlopen", mock_urlopen)
+
+        from bitcoin_mcp.server import resource_fees_history
+        result = json.loads(resource_fees_history())
+        assert result["source"] == "bitcoinlib_rpc_fallback"
+        assert "error" in result
+        assert "fallback_note" in result
+
 
 class TestMining:
     """Tests for mining tools."""

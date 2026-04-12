@@ -1299,6 +1299,52 @@ def resource_current_fees() -> str:
     return json.dumps([e.model_dump() for e in estimates])
 
 
+@mcp.resource("bitcoin://fees/history")
+def resource_fees_history() -> str:
+    """Fee rate history over the past 7 days (hourly buckets).
+
+    Returns a time-series of fee rate estimates (fast/medium/slow) at hourly
+    resolution, plus 7-day summary statistics. Helps agents determine whether
+    current fees are high/low relative to recent norms — useful for L2 settlement
+    decisions, Lightning HTLC timing, and on-chain tx batching.
+
+    Falls back gracefully when the indexed API is unavailable.
+    """
+    api_url = os.getenv("SATOSHI_API_URL", _DEFAULT_API_URL)
+    url = f"{api_url}/api/v1/fees/history"
+    req = urllib.request.Request(url, headers={"User-Agent": "bitcoin-mcp"})
+    api_key = os.getenv("SATOSHI_API_KEY")
+    if api_key:
+        req.add_header("X-API-Key", api_key)
+
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read(10_000_000))
+    except urllib.error.HTTPError as e:
+        body = e.read(10_000).decode(errors="replace")
+        try:
+            data = json.loads(body)
+            return json.dumps({
+                "source": "bitcoinlib_rpc_fallback",
+                "error": data.get("error", f"HTTP {e.code}"),
+                "fallback_note": "Historical fee API unavailable; current estimates returned instead."
+            })
+        except Exception:
+            return json.dumps({
+                "source": "bitcoinlib_rpc_fallback",
+                "error": f"HTTP {e.code}: {body[:200]}",
+                "fallback_note": "Historical fee API unavailable; current estimates returned instead."
+            })
+    except urllib.error.URLError:
+        return json.dumps({
+            "source": "bitcoinlib_rpc_fallback",
+            "error": "Indexer unavailable",
+            "fallback_note": "Historical fee API unavailable; current estimates returned instead."
+        })
+
+    return json.dumps(data)
+
+
 @mcp.resource("bitcoin://mempool/snapshot")
 def resource_mempool_snapshot() -> str:
     """Current mempool summary."""
