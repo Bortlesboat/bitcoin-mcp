@@ -221,6 +221,15 @@ All environment variables are optional. bitcoin-mcp falls back to the free hoste
 | `SATOSHI_API_URL` | Override hosted API URL | `https://bitcoinsapi.com` |
 | `SATOSHI_API_KEY` | API key for authenticated access | None |
 
+**CLI arguments** (passed via `args` in your MCP config):
+
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `--transport` | Transport protocol: `stdio`, `sse`, or `streamable-http` | `stdio` |
+| `--host` | Host for HTTP transports (SSE/streamable-http) | `127.0.0.1` |
+| `--port` | Port for HTTP transports (SSE/streamable-http) | `8000` |
+| `--log-level` | Logging verbosity: `DEBUG`, `INFO`, `WARNING`, `ERROR` | `INFO` |
+
 To connect to a local Bitcoin Core node:
 
 ```json
