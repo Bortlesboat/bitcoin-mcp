@@ -1312,3 +1312,107 @@ class TestSatoshiRPC:
         assert isinstance(rpc, srv._SatoshiRPC)
         assert "custom.example.com" in rpc._url
         srv._rpc = None
+
+
+class TestResources:
+    """Tests for MCP resources (issue #7 — 7 resources have zero test coverage).
+
+    Resources are injected as context into LLM conversations — if they return
+    malformed data or crash, the agent gets no context and fails silently.
+    """
+
+    # --- Static resources: validate JSON structure ---
+
+    def test_resource_script_opcodes(self, mock_rpc):
+        """bitcoin://protocol/script-opcodes returns valid opcode reference JSON."""
+        from bitcoin_mcp.server import resource_script_opcodes
+        result = json.loads(resource_script_opcodes())
+        # Top-level keys must be present
+        assert "constants" in result
+        assert "flow_control" in result
+        assert "stack" in result
+        assert "crypto" in result
+        assert "arithmetic" in result
+        assert "locktime" in result
+        # Known opcodes must be present
+        assert "OP_0" in result["constants"]
+        assert "OP_CHECKSIG" in result["crypto"]
+        assert "OP_CHECKLOCKTIMEVERIFY" in result["locktime"]
+
+    def test_resource_address_types(self, mock_rpc):
+        """bitcoin://protocol/address-types returns a list of valid address type objects."""
+        from bitcoin_mcp.server import resource_address_types
+        result = json.loads(resource_address_types())
+        assert isinstance(result, list)
+        assert len(result) >= 5  # P2PKH, P2SH, P2WPKH, P2WSH, P2TR
+        for item in result:
+            assert "type" in item
+            assert "prefix" in item
+            assert "script_type" in item
+            assert "bip" in item
+        # Known types present
+        types = {item["type"] for item in result}
+        assert "P2PKH" in types
+        assert "P2WPKH" in types
+        assert "P2TR" in types
+
+    def test_resource_sighash_types(self, mock_rpc):
+        """bitcoin://protocol/sighash-types returns a list of valid signature hash types."""
+        from bitcoin_mcp.server import resource_sighash_types
+        result = json.loads(resource_sighash_types())
+        assert isinstance(result, list)
+        assert len(result) >= 6
+        for item in result:
+            assert "name" in item
+            assert "value" in item
+            assert "description" in item
+        # Known types present
+        names = {item["name"] for item in result}
+        assert "SIGHASH_ALL" in names
+        assert "SIGHASH_NONE" in names
+        assert "SIGHASH_SINGLE" in names
+
+    # --- Dynamic resources: use mock_rpc fixture ---
+
+    def test_resource_connection_status(self, mock_rpc):
+        """bitcoin://connection/status returns JSON with network and connection info."""
+        from bitcoin_mcp.server import resource_connection_status
+        result = json.loads(resource_connection_status())
+        assert "network" in result
+        assert "connected" in result
+        assert result["connected"] is True
+        assert "chain" in result
+        assert result["chain"] == "main"
+
+    def test_resource_node_status(self, mock_rpc):
+        """bitcoin://node/status returns a valid NodeStatus JSON object."""
+        from bitcoin_mcp.server import resource_node_status
+        result = json.loads(resource_node_status())
+        assert "blocks" in result
+        assert "chain" in result
+        assert "headers" in result
+        assert "connections" in result
+        assert result["blocks"] == 890000
+
+    def test_resource_current_fees(self, mock_rpc):
+        """bitcoin://fees/current returns a list of fee estimates."""
+        from bitcoin_mcp.server import resource_current_fees
+        result = json.loads(resource_current_fees())
+        assert isinstance(result, list)
+        assert len(result) > 0
+        for item in result:
+            assert "conf_target" in item
+            assert "fee_rate_btc_kvb" in item
+            assert "fee_rate_sat_vb" in item
+
+    def test_resource_mempool_snapshot(self, mock_rpc):
+        """bitcoin://mempool/snapshot returns a valid MempoolSummary JSON object."""
+        from bitcoin_mcp.server import resource_mempool_snapshot
+        result = json.loads(resource_mempool_snapshot())
+        assert "size" in result
+        assert "total_bytes" in result
+        assert "total_fee_btc" in result
+        assert "min_relay_fee" in result
+        assert "congestion" in result
+        assert result["size"] == 15000
+        assert result["total_bytes"] == 8500000
