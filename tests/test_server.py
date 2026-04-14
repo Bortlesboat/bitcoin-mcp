@@ -1368,3 +1368,105 @@ class TestSatoshiRPC:
         assert isinstance(rpc, srv._SatoshiRPC)
         assert "custom.example.com" in rpc._url
         srv._rpc = None
+
+
+class TestDecodeXpub:
+    """Tests for decode_xpub tool."""
+
+    def test_rejects_xprv_private_key(self):
+        """xprv should be rejected to prevent accidental key exposure."""
+        from bitcoin_mcp.server import decode_xpub
+        result = decode_xpub("xprv9s21ZrQH143K3QTDL4Xr2ME3tkVdrGEKHkLJwW3w2xMGCzbdYWMMG8BFPXHfFLJrQvQfF5XtLBMF6PX6kPAzP8LxkEG3hUfYdR3y5Pa5J4U5x5")
+        parsed = json.loads(result)
+        assert "error" in parsed
+        assert "private key" in parsed["error"].lower()
+
+    def test_rejects_invalid_prefix(self):
+        """Non-xpub prefix should be rejected."""
+        from bitcoin_mcp.server import decode_xpub
+        result = decode_xpub("abcd1234567890")
+        parsed = json.loads(result)
+        assert "error" in parsed
+        assert "xpub" in parsed["error"].lower()
+
+    def test_descriptor_construction_xpub(self, monkeypatch):
+        """xpub should produce pkh() descriptor."""
+        from bitcoin_mcp.server import decode_xpub
+        class MockRPC:
+            def getdescriptorinfo(self, desc):
+                assert "pkh(" in desc
+                return {"descriptor": desc}
+            def deriveaddresses(self, desc, range_arg):
+                return ["1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"]
+
+        import bitcoin_mcp.server as srv
+        monkeypatch.setattr(srv, "get_rpc", lambda: MockRPC())
+        result = decode_xpub("xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29esFex1YgAjMR7TEXR3KcPo1MBqMwmGEpMKz1yKRMf1Lr5XKQ")
+        parsed = json.loads(result)
+        assert parsed["network"] == "mainnet"
+        assert parsed["key_type"] == "P2PKH"
+        assert "derived_addresses" in parsed
+
+    def test_descriptor_construction_zpub(self, monkeypatch):
+        """zpub should produce wpkh() descriptor."""
+        from bitcoin_mcp.server import decode_xpub
+        class MockRPC:
+            def getdescriptorinfo(self, desc):
+                assert "wpkh(" in desc
+                return {"descriptor": desc}
+            def deriveaddresses(self, desc, range_arg):
+                return ["bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"]
+
+        import bitcoin_mcp.server as srv
+        monkeypatch.setattr(srv, "get_rpc", lambda: MockRPC())
+        result = decode_xpub("zpub6s5xNvXZfWgCutLZGazW28DbP8JCZfF14W82zVHCnG9fLPREeFHMvNbLMdBES4fAdevYdcS5fzmGFQQDS2rVoD5cJ6oL3rYJNLnDrue59J")
+        parsed = json.loads(result)
+        assert parsed["network"] == "mainnet"
+        assert parsed["key_type"] == "P2WPKH"
+        assert "derived_addresses" in parsed
+
+    def test_descriptor_construction_ypub(self, monkeypatch):
+        """ypub should produce sh(wpkh()) descriptor."""
+        from bitcoin_mcp.server import decode_xpub
+        class MockRPC:
+            def getdescriptorinfo(self, desc):
+                assert "sh(wpkh(" in desc
+                return {"descriptor": desc}
+            def deriveaddresses(self, desc, range_arg):
+                return ["3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"]
+
+        import bitcoin_mcp.server as srv
+        monkeypatch.setattr(srv, "get_rpc", lambda: MockRPC())
+        result = decode_xpub("ypub6XNqYygAQi7CLjWnuus3MWRzkEBW9GDwJDHTXDb8aP9P3KRPHuw3bPLExRYooFDeg3v4N7WWM1e1sPnkQVqLqcrNu3qK7MGeGc9tCG")
+        parsed = json.loads(result)
+        assert parsed["network"] == "mainnet"
+        assert parsed["key_type"] == "P2SH-P2WPKH"
+        assert "derived_addresses" in parsed
+
+    def test_derive_count_max_20(self, monkeypatch):
+        """derive_count should be capped at 20."""
+        from bitcoin_mcp.server import decode_xpub
+        class MockRPC:
+            def getdescriptorinfo(self, desc):
+                return {"descriptor": desc}
+            def deriveaddresses(self, desc, range_arg):
+                assert "[0,19]" in range_arg, f"Expected [0,19], got {range_arg}"
+                return []
+
+        import bitcoin_mcp.server as srv
+        monkeypatch.setattr(srv, "get_rpc", lambda: MockRPC())
+        decode_xpub("zpub6s5xNvXZfWgCutLZGazW28DbP8JCZfF14W82zVHCnG9fLPREeFHMvNbLMdBES4fAdevYdcS5fzmGFQQDS2rVoD5cJ6oL3rYJNLnDrue59J", derive_count=999)
+
+    def test_account_param_passed_through(self, monkeypatch):
+        """account parameter should be included in descriptor path."""
+        from bitcoin_mcp.server import decode_xpub
+        class MockRPC:
+            def getdescriptorinfo(self, desc):
+                return {"descriptor": desc}
+            def deriveaddresses(self, desc, range_arg):
+                assert "/0/3)" in desc, f"Expected /0/3 in descriptor, got {desc}"
+                return []
+
+        import bitcoin_mcp.server as srv
+        monkeypatch.setattr(srv, "get_rpc", lambda: MockRPC())
+        decode_xpub("zpub6s5xNvXZfWgCutLZGazW28DbP8JCZfF14W82zVHCnG9fLPREeFHMvNbLMdBES4fAdevYdcS5fzmGFQQDS2rVoD5cJ6oL3rYJNLnDrue59J", account=3)

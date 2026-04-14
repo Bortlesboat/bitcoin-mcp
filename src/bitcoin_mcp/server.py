@@ -1658,6 +1658,118 @@ def get_indexer_status() -> str:
     return json.dumps(result)
 
 
+@mcp.tool()
+def decode_xpub(xpub: str, derive_count: int = 5, account: int = 0) -> str:
+    """Derive addresses and metadata from an extended public key (xpub/ypub/zpub/tpub).
+
+    Accepts an extended public key and returns network, key type, fingerprint, depth,
+    and a list of derived addresses with their BIP-32 paths. Uses Bitcoin Core's
+    `getdescriptorinfo` and `deriveaddresses` RPCs (falls back to Satoshi API when
+    no local node is available). Watch-only: never handles private keys.
+
+    Args:
+        xpub: Extended public key (xpub/ypub/zpub/tpub format, 111/1/2 chars prefix)
+        derive_count: Number of addresses to derive (default 5, max 20)
+        account: BIP-44 account index (default 0)
+
+    Returns:
+        JSON with network, key type, fingerprint, depth, and derived addresses with paths.
+    """
+    derive_count = min(max(1, derive_count), 20)
+
+    # --- basic format validation ---
+    xpub_clean = xpub.strip()
+    VALID_PREFIXES = ("xpub", "ypub", "zpub", "tpub")
+    if not any(xpub_clean.startswith(p) for p in VALID_PREFIXES):
+        return json.dumps({
+            "error": (
+                f"Invalid xpub prefix '{xpub_clean[:4]}'. "
+                f"Expected one of: {', '.join(VALID_PREFIXES)}"
+            )
+        })
+
+    # Reject private keys (xprv/ypub etc.) — would be a security incident
+    if xpub_clean.startswith("xprv") or "prv" in xpub_clean[:10].lower():
+        return json.dumps({
+            "error": "Extended private keys (xprv/ypub/zpub) are not accepted. "
+                     "This tool only handles public keys (xpub/ypub/zpub)."
+        })
+
+    # Map xpub prefix to Bitcoin Core descriptor script type
+    # xpub = BIP-44 (legacy P2PKH), ypub = BIP-49 (P2SH-P2WPKH), zpub = BIP-84 (P2WPKH)
+    PREFIX_SCRIPT = {
+        "xpub": "pkh({key}/0/{acct})",   # legacy P2PKH addresses
+        "ypub": "sh(wpkh({key}/0/{acct}))",  # P2SH-P2WPKH (nested segwit)
+        "zpub": "wpkh({key}/0/{acct})",   # native segwit P2WPKH
+        "tpub": "wpkh({key}/0/{acct})",   # testnet native segwit
+    }
+    script_template = PREFIX_SCRIPT.get(xpub_clean[:4])
+    if script_template is None:
+        return json.dumps({"error": f"Unhandled xpub type: {xpub_clean[:4]}"})
+    descriptor = script_template.format(key=xpub_clean, acct=account)
+
+    try:
+        rpc = get_rpc()
+
+        # Step 1: getdescriptorinfo — validates the descriptor and returns the checksummed form
+        desc_info = rpc.getdescriptorinfo(descriptor)
+        normalized = desc_info.get("descriptor", descriptor)
+
+        # Step 2: deriveaddresses — derive up to [0, derive_count-1]
+        derived = rpc.deriveaddresses(normalized, f"[0,{derive_count - 1}]")
+    except Exception as e:
+        return json.dumps({"error": f"RPC error during xpub derivation: {e}"})
+
+    # Determine network from prefix
+    if xpub_clean.startswith("tpub"):
+        network = "testnet"
+    elif xpub_clean.startswith("xpub"):
+        network = "mainnet"
+    else:
+        network = "mainnet"  # ypub/zpub are mainnet-only by convention
+
+    # Extract key type from prefix
+    key_type_map = {"xpub": "P2PKH", "ypub": "P2SH-P2WPKH", "zpub": "P2WPKH", "tpub": "P2WPKH-testnet"}
+    key_type = key_type_map.get(xpub_clean[:4], "unknown")
+
+    # Parse depth and fingerprint from xpub metadata using stdlib only.
+    # xpub base58check decoded = 78 bytes: version(4) + depth(1) + fingerprint(4) + child_index(4) + chaincode(32) + pubkey(33)
+    try:
+        B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+        leading_1s = len(xpub_clean) - len(xpub_clean.lstrip("1"))
+        num = 0
+        for c in xpub_clean[leading_1s:]:
+            num = num * 58 + B58.index(c)
+        raw = []
+        while num > 0:
+            raw.append(num & 255)
+            num >>= 8
+        decoded = bytes(reversed(raw)) if raw else b""
+        decoded = b"\x00" * leading_1s + decoded
+        depth = decoded[4]
+        fingerprint = decoded[5:9].hex()
+    except Exception:
+        fingerprint = "unknown"
+        depth = None
+
+    addresses = []
+    for i, addr in enumerate(derived[:derive_count]):
+        addresses.append({
+            "index": i,
+            "address": addr,
+            "path": f"m/0/{account}/{i}" if depth and depth >= 3 else f"m/0/{account}/{i}"
+        })
+
+    result = {
+        "network": network,
+        "key_type": key_type,
+        "fingerprint": fingerprint,
+        "depth": depth,
+        "derived_addresses": addresses,
+    }
+    return json.dumps(result, indent=2)
+
+
 # ============================================================
 # PSBT SECURITY TOOLS (pure local analysis — no node required)
 # ============================================================
