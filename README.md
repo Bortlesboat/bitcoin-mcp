@@ -11,7 +11,7 @@ Give any AI agent Bitcoin superpowers — fee intelligence, mempool analysis, an
 [![Powered by Satoshi API](https://img.shields.io/badge/Powered%20by-Satoshi%20API-F7931A)](https://bitcoinsapi.com?utm_source=github&utm_medium=badge&utm_campaign=bitcoin-mcp)
 [![OpenSats](https://img.shields.io/badge/Support-OpenSats-F7931A)](https://opensats.org)
 
-**49 tools** · **116 tests** · **6 prompts** · **7 resources** · **Zero config** · **MIT licensed**
+**49 tools** · **126 tests** · **6 prompts** · **8 resources** · **Zero config** · **MIT licensed**
 
 > If bitcoin-mcp is useful to you, consider giving it a [star](https://github.com/Bortlesboat/bitcoin-mcp/stargazers) — it helps others discover the project.
 
@@ -71,6 +71,23 @@ Add to `.vscode/mcp.json`:
   }
 }
 ```
+
+### Zed
+
+Add to your Zed `settings.json` under `context_servers`:
+
+```json
+{
+  "context_servers": {
+    "bitcoin": {
+      "command": "uvx",
+      "args": ["bitcoin-mcp"]
+    }
+  }
+}
+```
+
+See the [Zed MCP docs](https://zed.dev/docs/ai/mcp) for the current settings location and custom server flow.
 
 ### Docker
 
@@ -213,6 +230,23 @@ bitcoin-mcp works immediately with 1,000 requests/day (anonymous). Register for 
 
 All environment variables are optional. bitcoin-mcp falls back to the free hosted [Satoshi API](https://bitcoinsapi.com) when no local node is configured.
 
+### CLI Flags
+
+`bitcoin-mcp` supports the following runtime flags:
+
+| Flag | Values | Default | Description |
+|------|--------|---------|-------------|
+| `--transport` | `stdio`, `sse`, `streamable-http` | `stdio` | MCP transport to run |
+| `--host` | hostname / IP | `127.0.0.1` for HTTP transports | Bind host for `sse` and `streamable-http` |
+| `--port` | integer | `8000` for HTTP transports | Bind port for `sse` and `streamable-http` |
+| `--log-level` | `DEBUG`, `INFO`, `WARNING`, `ERROR` | `INFO` | Server log verbosity |
+
+Example:
+
+```bash
+bitcoin-mcp --transport sse --host 127.0.0.1 --port 8000 --log-level DEBUG
+```
+
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `BITCOIN_RPC_HOST` | Bitcoin Core RPC host | `127.0.0.1` |
@@ -243,8 +277,8 @@ To connect to a local Bitcoin Core node:
 **6 built-in prompts** for common workflows:
 `analyze_fee_environment`, `investigate_transaction`, `monitor_mempool_fees`, `taproot_adoption_report`, `network_health_report`, `track_transaction`
 
-**7 resources** for context injection:
-`bitcoin://connection/status`, `bitcoin://node/status`, `bitcoin://fees/current`, `bitcoin://mempool/snapshot`, `bitcoin://protocol/script-opcodes`, `bitcoin://protocol/address-types`, `bitcoin://protocol/sighash-types`
+**8 resources** for context injection:
+`bitcoin://connection/status`, `bitcoin://node/status`, `bitcoin://fees/current`, `bitcoin://fees/history`, `bitcoin://mempool/snapshot`, `bitcoin://protocol/script-opcodes`, `bitcoin://protocol/address-types`, `bitcoin://protocol/sighash-types`
 
 ## Links
 

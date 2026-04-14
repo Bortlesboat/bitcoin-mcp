@@ -1,13 +1,12 @@
 {
-  "_comment": "Zero config — auto-connects to hosted API if no local node found",
-  "mcpServers": {
+  "_comment": "Add this under context_servers in your Zed settings.json",
+  "context_servers": {
     "bitcoin": {
       "command": "uvx",
       "args": ["bitcoin-mcp"]
     }
   },
-
-  "_comment_local": "To force a specific local node (uncomment and replace the above)",
+  "_comment_local": "To force a specific local node, replace the server entry below",
   "_local_example": {
     "bitcoin": {
       "command": "uvx",

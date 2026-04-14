@@ -1,6 +1,7 @@
 """Bitcoin MCP Server — 49 tools for AI agents to query Bitcoin."""
 
 import argparse
+import hashlib
 import json
 import logging
 import os
@@ -11,6 +12,7 @@ import urllib.error
 
 from mcp.server.fastmcp import FastMCP
 
+from bitcoin_mcp.address_validation import _validate_address_format
 from bitcoinlib_rpc import BitcoinRPC
 from bitcoinlib_rpc.blocks import analyze_block as _analyze_block
 from bitcoinlib_rpc.fees import get_fee_estimates as _get_fee_estimates
@@ -44,6 +46,13 @@ NETWORK_PORTS = {
     "signet": 38332,
     "regtest": 18443,
 }
+
+_B58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+_XPUB_VERSION = bytes.fromhex("0488b21e")
+_TPUB_VERSION = bytes.fromhex("043587cf")
+_YPUB_VERSION = bytes.fromhex("049d7cb2")
+_ZPUB_VERSION = bytes.fromhex("04b24746")
+_PRIVATE_KEY_PREFIXES = ("xprv", "yprv", "zprv", "tprv")
 
 
 def _default_port() -> int:
@@ -148,6 +157,95 @@ def get_rpc():
     logger.info("No local node found — using Satoshi API (%s)", api_url)
     _rpc = _SatoshiRPC(api_url)
     return _rpc
+
+
+def _rpc_call(rpc: object, method: str, *params: object) -> object:
+    """Call an RPC method on both typed and dynamic RPC clients."""
+    if hasattr(rpc, method):
+        return getattr(rpc, method)(*params)
+    if hasattr(rpc, "call"):
+        return rpc.call(method, *params)
+    raise AttributeError(f"RPC client does not support {method}")
+
+
+def _b58decode_check(value: str) -> bytes:
+    """Decode a Base58Check string and return the payload without checksum."""
+    num = 0
+    for char in value:
+        try:
+            num = num * 58 + _B58_ALPHABET.index(char)
+        except ValueError as exc:
+            raise ValueError(f"Invalid Base58 character: {char}") from exc
+
+    decoded = num.to_bytes((num.bit_length() + 7) // 8, "big") if num else b""
+    leading_zeros = len(value) - len(value.lstrip("1"))
+    decoded = (b"\x00" * leading_zeros) + decoded
+
+    if len(decoded) < 4:
+        raise ValueError("Extended key is too short.")
+
+    payload, checksum = decoded[:-4], decoded[-4:]
+    expected = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
+    if checksum != expected:
+        raise ValueError("Invalid Base58Check checksum.")
+    return payload
+
+
+def _b58encode_check(payload: bytes) -> str:
+    """Encode a payload as Base58Check."""
+    checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
+    data = payload + checksum
+    num = int.from_bytes(data, "big")
+    chars: list[str] = []
+    while num:
+        num, remainder = divmod(num, 58)
+        chars.append(_B58_ALPHABET[remainder])
+    encoded = "".join(reversed(chars))
+    leading_zeros = len(data) - len(data.lstrip(b"\x00"))
+    return ("1" * leading_zeros) + encoded
+
+
+def _normalize_extended_public_key(xpub: str) -> dict[str, object]:
+    """Decode an extended public key and normalize it for descriptor use."""
+    payload = _b58decode_check(xpub)
+    if len(payload) != 78:
+        raise ValueError("Extended public key payload should be 78 bytes.")
+
+    version = payload[:4]
+    depth = payload[4]
+    fingerprint = payload[5:9].hex()
+
+    if version == _XPUB_VERSION:
+        key_type = "xpub"
+        network = "mainnet"
+        descriptor_key = xpub
+        descriptor_template = "pkh({key}/0/{account})"
+    elif version == _YPUB_VERSION:
+        key_type = "ypub"
+        network = "mainnet"
+        descriptor_key = _b58encode_check(_XPUB_VERSION + payload[4:])
+        descriptor_template = "sh(wpkh({key}/0/{account}))"
+    elif version == _ZPUB_VERSION:
+        key_type = "zpub"
+        network = "mainnet"
+        descriptor_key = _b58encode_check(_XPUB_VERSION + payload[4:])
+        descriptor_template = "wpkh({key}/0/{account})"
+    elif version == _TPUB_VERSION:
+        key_type = "tpub"
+        network = "testnet"
+        descriptor_key = xpub
+        descriptor_template = "wpkh({key}/0/{account})"
+    else:
+        raise ValueError("Unsupported extended public key version.")
+
+    return {
+        "descriptor_key": descriptor_key,
+        "descriptor_template": descriptor_template,
+        "depth": depth,
+        "fingerprint": fingerprint,
+        "network": network,
+        "type": key_type,
+    }
 
 
 # ============================================================
@@ -820,6 +918,9 @@ def get_address_utxos(address: str) -> str:
     Args:
         address: Bitcoin address to scan
     """
+    error = _validate_address_format(address)
+    if error:
+        return json.dumps({"error": f"Invalid address: {error}"})
     try:
         result = get_rpc().scantxoutset("start", [f"addr({address})"])
     except Exception as e:
@@ -834,6 +935,9 @@ def validate_address(address: str) -> str:
     Args:
         address: Bitcoin address to validate (any format: P2PKH, P2SH, P2WPKH, P2WSH, P2TR)
     """
+    error = _validate_address_format(address)
+    if error:
+        return json.dumps({"error": f"Invalid address: {error}"})
     try:
         result = get_rpc().validateaddress(address)
     except Exception as e:
@@ -1555,6 +1659,10 @@ def get_address_balance(address: str) -> str:
     Args:
         address: Bitcoin address (any format: legacy, P2SH, bech32, bech32m)
     """
+    error = _validate_address_format(address)
+    if error:
+        return json.dumps({"error": f"Invalid address: {error}"})
+
     result = _query_indexed_api(f"address/{address}/balance")
     if "error" not in result:
         return json.dumps(result)
@@ -1590,6 +1698,10 @@ def get_address_history(address: str, offset: int = 0, limit: int = 25) -> str:
         offset: Skip this many transactions (for pagination, default 0)
         limit: Max transactions to return (default 25, max 100)
     """
+    error = _validate_address_format(address)
+    if error:
+        return json.dumps({"error": f"Invalid address: {error}"})
+
     limit = min(limit, 100)
     result = _query_indexed_api(f"address/{address}/txs?offset={offset}&limit={limit}")
     if "error" not in result:
@@ -1625,6 +1737,51 @@ def get_address_history(address: str, offset: int = 0, limit: int = 25) -> str:
 
 
 @mcp.tool()
+def get_address_transactions(address: str, limit: int = 10, offset: int = 0) -> str:
+    """Get paginated transaction history for a Bitcoin address with per-tx value details."""
+
+    error = _validate_address_format(address)
+    if error:
+        return json.dumps({"error": f"Invalid address: {error}"})
+
+    limit = min(max(1, limit), 100)
+    result = _query_indexed_api(f"address/{address}/txs?offset={offset}&limit={limit}")
+    if "error" not in result:
+        return json.dumps(result)
+
+    txs = _query_mempool_space(f"address/{address}/txs")
+    if isinstance(txs, dict) and "error" in txs:
+        return json.dumps(txs)
+    if not isinstance(txs, list):
+        return json.dumps({"error": "Unexpected response from mempool.space"})
+
+    page = txs[offset : offset + limit]
+    fallback = {
+        "source": "mempool.space",
+        "data": {
+            "address": address,
+            "total_txs": len(txs),
+            "offset": offset,
+            "limit": limit,
+            "txs": [
+                {
+                    "txid": tx.get("txid"),
+                    "block_height": tx.get("status", {}).get("block_height"),
+                    "timestamp": tx.get("status", {}).get("block_time"),
+                    "value_in": sum(
+                        vin.get("prevout", {}).get("value", 0) for vin in tx.get("vin", [])
+                    ),
+                    "value_out": sum(vout.get("value", 0) for vout in tx.get("vout", [])),
+                    "fee": tx.get("fee"),
+                }
+                for tx in page
+            ],
+        },
+    }
+    return json.dumps(fallback)
+
+
+@mcp.tool()
 def get_indexed_transaction(txid: str) -> str:
     """Get enriched transaction details from the blockchain indexer.
 
@@ -1656,6 +1813,68 @@ def get_indexer_status() -> str:
     """
     result = _query_indexed_api("status")
     return json.dumps(result)
+
+
+@mcp.tool()
+def decode_xpub(xpub: str, derive_count: int = 5, account: int = 0) -> str:
+    """Derive addresses and metadata from an extended public key."""
+
+    xpub = xpub.strip()
+    if any(xpub.startswith(prefix) for prefix in _PRIVATE_KEY_PREFIXES):
+        return json.dumps(
+            {
+                "error": (
+                    "Extended private keys are not accepted. "
+                    "Please provide an extended public key only."
+                )
+            }
+        )
+
+    valid_prefixes = ("xpub", "ypub", "zpub", "tpub")
+    if not any(xpub.startswith(prefix) for prefix in valid_prefixes):
+        return json.dumps(
+            {
+                "error": (
+                    f"Invalid xpub prefix '{xpub[:4]}'. "
+                    f"Expected one of: {', '.join(valid_prefixes)}"
+                )
+            }
+        )
+
+    derive_count = min(max(1, derive_count), 20)
+
+    try:
+        metadata = _normalize_extended_public_key(xpub)
+    except ValueError as exc:
+        return json.dumps({"error": str(exc)})
+
+    descriptor = metadata["descriptor_template"].format(
+        key=metadata["descriptor_key"], account=account
+    )
+
+    try:
+        rpc = get_rpc()
+        desc_info = _rpc_call(rpc, "getdescriptorinfo", descriptor)
+        normalized = desc_info.get("descriptor", descriptor) if isinstance(desc_info, dict) else descriptor
+        derived = _rpc_call(rpc, "deriveaddresses", normalized, [0, derive_count - 1])
+    except Exception as exc:
+        return json.dumps({"error": f"RPC error during xpub derivation: {exc}"})
+
+    result = {
+        "network": metadata["network"],
+        "type": metadata["type"],
+        "fingerprint": metadata["fingerprint"],
+        "depth": metadata["depth"],
+        "derived_addresses": [
+            {
+                "index": index,
+                "address": address,
+                "path": f"m/0/{account}/{index}",
+            }
+            for index, address in enumerate(derived[:derive_count])
+        ],
+    }
+    return json.dumps(result, indent=2)
 
 
 # ============================================================
