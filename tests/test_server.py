@@ -1,5 +1,6 @@
 """Tests for bitcoin-mcp server tools."""
 
+import hashlib
 import json
 import os
 import subprocess
@@ -10,6 +11,33 @@ import urllib.request
 import pytest
 
 from bitcoin_mcp import __version__
+
+
+def _b58encode_check(payload: bytes) -> str:
+    alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+    checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
+    data = payload + checksum
+    num = int.from_bytes(data, "big")
+    chars = []
+    while num:
+        num, remainder = divmod(num, 58)
+        chars.append(alphabet[remainder])
+    encoded = "".join(reversed(chars))
+    leading_zeros = len(data) - len(data.lstrip(b"\x00"))
+    return ("1" * leading_zeros) + encoded
+
+
+def _fake_extended_key(version_hex: str) -> str:
+    payload = (
+        bytes.fromhex(version_hex)
+        + bytes([3])
+        + bytes.fromhex("d34db33f")
+        + (0).to_bytes(4, "big")
+        + (b"\x11" * 32)
+        + b"\x02"
+        + (b"\x22" * 32)
+    )
+    return _b58encode_check(payload)
 
 
 class TestNodeNetwork:
@@ -402,7 +430,7 @@ class TestDeveloperTools:
 
     def test_get_address_utxos(self, mock_rpc):
         from bitcoin_mcp.server import get_address_utxos
-        result = json.loads(get_address_utxos("bc1qtest"))
+        result = json.loads(get_address_utxos("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"))
         assert result["success"] is True
         assert result["txouts"] == 2
         assert result["total_amount"] == 1.5
@@ -1201,14 +1229,18 @@ class TestIndexedAddress:
         from bitcoin_mcp.server import get_address_history
         self._mock_urlopen({
             "data": {
-                "address": "bc1qtest",
+                "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
                 "transactions": [
                     {"txid": "abc123", "block_height": 890000, "net_value": 50000}
                 ],
                 "total": 1,
             }
         }, monkeypatch)
-        result = json.loads(get_address_history("bc1qtest", offset=0, limit=25))
+        result = json.loads(
+            get_address_history(
+                "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4", offset=0, limit=25
+            )
+        )
         assert len(result["data"]["transactions"]) == 1
         assert result["data"]["transactions"][0]["txid"] == "abc123"
 
@@ -1232,7 +1264,70 @@ class TestIndexedAddress:
             return MockResponse()
 
         monkeypatch.setattr("urllib.request.urlopen", capturing_urlopen)
-        get_address_history("bc1qtest", offset=0, limit=500)
+        get_address_history(
+            "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4", offset=0, limit=500
+        )
+        assert "limit=100" in captured_urls[0]
+
+    def test_get_address_transactions_success(self, mock_rpc, monkeypatch):
+        from bitcoin_mcp.server import get_address_transactions
+
+        self._mock_urlopen(
+            {
+                "data": {
+                    "address": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+                    "txs": [
+                        {
+                            "txid": "abc123",
+                            "block_height": 890000,
+                            "timestamp": 1710000000,
+                            "value_in": 50000,
+                            "value_out": 49800,
+                            "fee": 200,
+                        }
+                    ],
+                    "total_txs": 1,
+                }
+            },
+            monkeypatch,
+        )
+
+        result = json.loads(
+            get_address_transactions(
+                "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4", offset=0, limit=10
+            )
+        )
+        assert result["data"]["total_txs"] == 1
+        assert result["data"]["txs"][0]["txid"] == "abc123"
+        assert result["data"]["txs"][0]["fee"] == 200
+
+    def test_get_address_transactions_caps_limit(self, mock_rpc, monkeypatch):
+        from bitcoin_mcp.server import get_address_transactions
+
+        captured_urls = []
+
+        class MockResponse:
+            def __init__(self):
+                self._data = json.dumps({"data": {"txs": [], "total_txs": 0}}).encode()
+
+            def read(self, n=-1):
+                return self._data
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                pass
+
+        def capturing_urlopen(req, timeout=None):
+            captured_urls.append(req.full_url if hasattr(req, "full_url") else str(req))
+            return MockResponse()
+
+        monkeypatch.setattr("urllib.request.urlopen", capturing_urlopen)
+        get_address_transactions(
+            "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4", offset=5, limit=500
+        )
+        assert "offset=5" in captured_urls[0]
         assert "limit=100" in captured_urls[0]
 
     def test_get_indexed_transaction_success(self, mock_rpc, monkeypatch):
@@ -1273,7 +1368,9 @@ class TestIndexedAddress:
                 urllib.error.URLError("Connection refused")
             ),
         )
-        result = json.loads(get_address_balance("bc1qtest"))
+        result = json.loads(
+            get_address_balance("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4")
+        )
         assert "error" in result
         assert "unavailable" in result["error"].lower()
 
@@ -1315,9 +1412,183 @@ class TestIndexedAddress:
             )
 
         monkeypatch.setattr("urllib.request.urlopen", raise_404)
-        result = json.loads(get_address_balance("bc1qnonexistent"))
+        result = json.loads(
+            get_address_balance("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4")
+        )
         assert "error" in result
         assert "not found" in result["error"].lower()
+
+class TestResources:
+    """Tests for MCP resources exposed by the server."""
+
+    def test_resource_script_opcodes(self, mock_rpc):
+        from bitcoin_mcp.server import resource_script_opcodes
+
+        result = json.loads(resource_script_opcodes())
+        assert "constants" in result
+        assert "flow_control" in result
+        assert "stack" in result
+        assert "crypto" in result
+        assert "arithmetic" in result
+        assert "locktime" in result
+        assert "OP_0" in result["constants"]
+        assert "OP_CHECKSIG" in result["crypto"]
+        assert "OP_CHECKLOCKTIMEVERIFY" in result["locktime"]
+
+    def test_resource_address_types(self, mock_rpc):
+        from bitcoin_mcp.server import resource_address_types
+
+        result = json.loads(resource_address_types())
+        assert isinstance(result, list)
+        assert len(result) >= 5
+        for item in result:
+            assert "type" in item
+            assert "prefix" in item
+            assert "script_type" in item
+            assert "bip" in item
+        types = {item["type"] for item in result}
+        assert "P2PKH" in types
+        assert "P2WPKH" in types
+        assert "P2TR" in types
+
+    def test_resource_sighash_types(self, mock_rpc):
+        from bitcoin_mcp.server import resource_sighash_types
+
+        result = json.loads(resource_sighash_types())
+        assert isinstance(result, list)
+        assert len(result) >= 6
+        for item in result:
+            assert "name" in item
+            assert "value" in item
+            assert "description" in item
+        names = {item["name"] for item in result}
+        assert "SIGHASH_ALL" in names
+        assert "SIGHASH_NONE" in names
+        assert "SIGHASH_SINGLE" in names
+
+    def test_resource_connection_status(self, mock_rpc):
+        from bitcoin_mcp.server import resource_connection_status
+
+        result = json.loads(resource_connection_status())
+        assert "network" in result
+        assert "connected" in result
+        assert result["connected"] is True
+        assert result["chain"] == "main"
+
+    def test_resource_node_status(self, mock_rpc):
+        from bitcoin_mcp.server import resource_node_status
+
+        result = json.loads(resource_node_status())
+        assert "blocks" in result
+        assert "chain" in result
+        assert "headers" in result
+        assert "connections" in result
+        assert result["blocks"] == 890000
+
+    def test_resource_current_fees(self, mock_rpc):
+        from bitcoin_mcp.server import resource_current_fees
+
+        result = json.loads(resource_current_fees())
+        assert isinstance(result, list)
+        assert len(result) > 0
+        for item in result:
+            assert "conf_target" in item
+            assert "fee_rate_btc_kvb" in item
+            assert "fee_rate_sat_vb" in item
+
+    def test_resource_mempool_snapshot(self, mock_rpc):
+        from bitcoin_mcp.server import resource_mempool_snapshot
+
+        result = json.loads(resource_mempool_snapshot())
+        assert "size" in result
+        assert "total_bytes" in result
+        assert "total_fee_btc" in result
+        assert "min_relay_fee" in result
+        assert "congestion" in result
+        assert result["size"] == 15000
+        assert result["total_bytes"] == 8500000
+
+
+class TestDecodeXpub:
+    """Tests for the decode_xpub tool."""
+
+    def test_rejects_xprv_private_key(self):
+        from bitcoin_mcp.server import decode_xpub
+
+        result = decode_xpub(
+            "xprv9s21ZrQH143K3QTDL4Xr2ME3tkVdrGEKHkLJwW3w2xMGCzbdYWMMG8BFPXHf"
+            "FLJrQvQfF5XtLBMF6PX6kPAzP8LxkEG3hUfYdR3y5Pa5J4U5x5"
+        )
+        parsed = json.loads(result)
+        assert "error" in parsed
+        assert "private key" in parsed["error"].lower()
+
+    def test_rejects_invalid_prefix(self):
+        from bitcoin_mcp.server import decode_xpub
+
+        result = decode_xpub("abcd1234567890")
+        parsed = json.loads(result)
+        assert "error" in parsed
+        assert "xpub" in parsed["error"].lower()
+
+    def test_descriptor_construction_xpub(self, monkeypatch):
+        from bitcoin_mcp.server import decode_xpub
+
+        xpub = _fake_extended_key("0488b21e")
+
+        class MockRPC:
+            def getdescriptorinfo(self, desc):
+                assert "pkh(" in desc
+                return {"descriptor": desc}
+
+            def deriveaddresses(self, desc, range_arg):
+                assert range_arg == [0, 4]
+                return ["1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"]
+
+        import bitcoin_mcp.server as srv
+
+        monkeypatch.setattr(srv, "get_rpc", lambda: MockRPC())
+        result = decode_xpub(xpub)
+        parsed = json.loads(result)
+        assert parsed["network"] == "mainnet"
+        assert parsed["type"] == "xpub"
+        assert parsed["derived_addresses"][0]["address"] == "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
+
+    def test_derive_count_max_20(self, monkeypatch):
+        from bitcoin_mcp.server import decode_xpub
+
+        xpub = _fake_extended_key("0488b21e")
+
+        class MockRPC:
+            def getdescriptorinfo(self, desc):
+                return {"descriptor": desc}
+
+            def deriveaddresses(self, desc, range_arg):
+                assert range_arg == [0, 19]
+                return []
+
+        import bitcoin_mcp.server as srv
+
+        monkeypatch.setattr(srv, "get_rpc", lambda: MockRPC())
+        decode_xpub(xpub, derive_count=999)
+
+    def test_account_param_passed_through(self, monkeypatch):
+        from bitcoin_mcp.server import decode_xpub
+
+        xpub = _fake_extended_key("0488b21e")
+
+        class MockRPC:
+            def getdescriptorinfo(self, desc):
+                assert "/0/3" in desc
+                return {"descriptor": desc}
+
+            def deriveaddresses(self, desc, range_arg):
+                return []
+
+        import bitcoin_mcp.server as srv
+
+        monkeypatch.setattr(srv, "get_rpc", lambda: MockRPC())
+        decode_xpub(xpub, account=3)
 
 
 class TestSatoshiRPC:
