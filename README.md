@@ -108,6 +108,10 @@ Pass environment variables to connect to a local Bitcoin Core node or set your A
 docker run -i -e SATOSHI_API_KEY=your-key bitcoin-mcp
 ```
 
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/bortlesboat-bitcoin-mcp).
+
 ## Why bitcoin-mcp?
 
 - **Fee intelligence that saves real money** — know the cheapest time to send, compare fee tiers, estimate exact costs before broadcasting
