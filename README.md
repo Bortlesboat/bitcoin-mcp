@@ -108,6 +108,17 @@ Pass environment variables to connect to a local Bitcoin Core node or set your A
 docker run -i -e SATOSHI_API_KEY=your-key bitcoin-mcp
 ```
 
+## Agent Integration
+
+For repos that need Bitcoin tools, add `bitcoin-mcp` to the agent's MCP config and link the Satoshi API integration kit:
+
+- Satoshi API agent guide: https://github.com/Bortlesboat/bitcoin-api/blob/main/docs/AGENT_INTEGRATION.md
+- Agent-readable overview: https://bitcoinsapi.com/llms.txt
+- MCP setup: https://bitcoinsapi.com/mcp-setup
+- x402 first paid call: https://bitcoinsapi.com/x402/start
+
+Generated HTTP examples should use canonical Satoshi API `/api/v1` paths.
+
 ## Why bitcoin-mcp?
 
 - **Fee intelligence that saves real money** — know the cheapest time to send, compare fee tiers, estimate exact costs before broadcasting
