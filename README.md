@@ -108,6 +108,21 @@ Pass environment variables to connect to a local Bitcoin Core node or set your A
 docker run -i -e SATOSHI_API_KEY=your-key bitcoin-mcp
 ```
 
+### Ask whether to send Bitcoin now
+
+Use this as the first useful activation path after install:
+
+> "I need to send a Bitcoin transaction today. Use bitcoin-mcp to decide whether to send now or wait, and show the fee rate you used."
+
+Expected path:
+
+1. The agent calls `get_fee_recommendation`.
+2. The answer gives a clear send now or wait recommendation with fee rates in sat/vB.
+3. If you will repeat this check, register a free Satoshi API key and add `SATOSHI_API_KEY` to your MCP config.
+4. If you need a one-off paid API call instead of the MCP tool, use `https://bitcoinsapi.com/x402/start`.
+
+After it works, Star this repo and share a short showcase with the prompt, tool call, and outcome so other Bitcoin agent builders can see the path.
+
 ## Agent Integration
 
 For repos that need Bitcoin tools, add `bitcoin-mcp` to the agent's MCP config and link the Satoshi API integration kit:
