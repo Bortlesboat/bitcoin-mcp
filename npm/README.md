@@ -1,6 +1,6 @@
 # bitcoin-mcp
 
-npm wrapper for [bitcoin-mcp](https://github.com/Bortlesboat/bitcoin-mcp) -- the most comprehensive Bitcoin MCP server. 49 tools for AI agents, zero config.
+npm wrapper for [bitcoin-mcp](https://github.com/Bortlesboat/bitcoin-mcp) -- 50 Bitcoin tools for AI agents using a local node or compatible API backend.
 
 This package is a thin Node.js wrapper that launches the Python `bitcoin-mcp` server via `uvx` or `pipx`.
 
@@ -31,6 +31,8 @@ Requires one of:
 
 - [uv](https://docs.astral.sh/uv/) (recommended) -- provides `uvx`
 - [pipx](https://pypa.github.io/pipx/)
+
+bitcoin-mcp also requires a local Bitcoin Core/Knots node or `SATOSHI_API_URL` pointing to a compatible API. The former public service at bitcoinsapi.com is paused.
 
 ## Full Documentation
 

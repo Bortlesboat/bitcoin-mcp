@@ -17,10 +17,10 @@ startCommand:
         description: "Bitcoin network: mainnet, testnet, signet, or regtest"
       satoshiApiUrl:
         type: string
-        description: Override the default hosted Satoshi API URL
+        description: Compatible Satoshi API base URL (required when no local node is available)
       satoshiApiKey:
         type: string
-        description: API key for authenticated access (free at bitcoinsapi.com)
+        description: API key when required by the configured Satoshi API
   commandFunction:
     |-
     (config) => ({command:'uvx', args:['bitcoin-mcp'], env: Object.assign({}, config.bitcoinRpcHost ? {BITCOIN_RPC_HOST: config.bitcoinRpcHost} : {}, config.bitcoinRpcPort ? {BITCOIN_RPC_PORT: config.bitcoinRpcPort} : {}, config.bitcoinNetwork ? {BITCOIN_NETWORK: config.bitcoinNetwork} : {}, config.satoshiApiUrl ? {SATOSHI_API_URL: config.satoshiApiUrl} : {}, config.satoshiApiKey ? {SATOSHI_API_KEY: config.satoshiApiKey} : {})})

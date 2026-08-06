@@ -1,7 +1,7 @@
 {
   "name": "@bortlesboat/bitcoin-mcp",
   "version": "0.5.1",
-  "description": "The most comprehensive Bitcoin MCP server. 49 tools for AI agents: fees, mempool, blocks, transactions, mining, price, supply. Zero config.",
+  "description": "50 Bitcoin tools for AI agents using Bitcoin Core or a compatible API backend.",
   "type": "module",
   "bin": {
     "bitcoin-mcp": "./bin/bitcoin-mcp.js"

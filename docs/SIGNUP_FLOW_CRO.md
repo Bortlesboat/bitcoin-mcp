@@ -2,6 +2,8 @@
 
 *Created: 2026-03-17*
 
+> **Status (2026-08-06): Historical planning document.** The public Satoshi API deployment and its signup flow are paused. The funnel, quotas, and calls to action below are not current operational claims.
+
 ---
 
 ## Current Funnel (Broken)

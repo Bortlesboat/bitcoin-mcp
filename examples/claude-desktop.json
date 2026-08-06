@@ -1,18 +1,28 @@
 {
-  "_comment": "Zero config — auto-connects to hosted API if no local node found",
+  "_comment": "Auto-detects a local Bitcoin node; otherwise configure one of the backend examples below",
   "mcpServers": {
     "bitcoin": {
       "command": "bitcoin-mcp"
     }
   },
 
-  "_comment_local": "To force a specific local node (uncomment and replace the above)",
+  "_comment_local": "To use a specific local node (uncomment and replace the above)",
   "_local_example": {
     "bitcoin": {
       "command": "bitcoin-mcp",
       "env": {
         "BITCOIN_RPC_HOST": "127.0.0.1",
         "BITCOIN_RPC_PORT": "8332"
+      }
+    }
+  },
+
+  "_comment_remote": "To use a compatible remote API instead (uncomment and replace the above)",
+  "_remote_example": {
+    "bitcoin": {
+      "command": "bitcoin-mcp",
+      "env": {
+        "SATOSHI_API_URL": "https://your-api.example"
       }
     }
   }

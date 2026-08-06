@@ -1,10 +1,10 @@
 # bitcoin-mcp — MCP Server for Bitcoin
 
 ## What this is
-MCP server wrapping Bitcoin Core/Knots RPC. Zero-config: auto-falls back to Satoshi API (bitcoinsapi.com) when no local node is detected. Published to PyPI and Smithery.
+MCP server wrapping Bitcoin Core/Knots RPC. It auto-detects a local node and can use a compatible remote API when `SATOSHI_API_URL` is configured. The former public service at bitcoinsapi.com is paused and is not a working default. Published to PyPI and Smithery.
 
 ## Key files
-- `src/bitcoin_mcp/server.py` — all 49 tools defined as `@mcp.tool()` decorators
+- `src/bitcoin_mcp/server.py` — 50 standard tools plus one conditional remote-API tool, defined as `@mcp.tool()` decorators
 - `src/bitcoin_mcp/l402_client.py` — L402 payment channel client
 - `tests/` — test suite, must pass before any release
 - `.github/copilot-instructions.md` — GitHub Copilot/Coding Agent guidance
@@ -25,11 +25,11 @@ MCP server wrapping Bitcoin Core/Knots RPC. Zero-config: auto-falls back to Sato
 ## Development rules
 - Bump version in `pyproject.toml` for any release (semver)
 - Run `pytest tests/` before any commit
-- Tools must work against BOTH local Bitcoin Core AND the Satoshi API fallback
+- Tools must work against both local Bitcoin Core/Knots and explicitly configured Satoshi API-compatible backends
 - No breaking changes to tool signatures without a major version bump
 - Tool docstrings appear in MCP client UIs — keep them accurate and useful
 - Discoverability matters: Glama/Smithery rank by stars + docs. Keep README and per-tool examples current.
-- Keep Satoshi API fallback docs aligned with https://github.com/Bortlesboat/bitcoin-api/blob/main/docs/AGENT_INTEGRATION.md and https://bitcoinsapi.com/llms.txt
+- Keep optional Satoshi API integration docs aligned with https://github.com/Bortlesboat/bitcoin-api/blob/main/docs/AGENT_INTEGRATION.md
 
 ## Current focus
 - Improve Glama ranking: add per-tool usage examples, increase release cadence

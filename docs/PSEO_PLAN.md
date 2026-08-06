@@ -2,6 +2,8 @@
 
 *Created: 2026-03-17*
 
+> **Status (2026-08-06): Historical planning document.** The referenced bitcoinsapi.com pages are unavailable while the public deployment is paused. Revalidate the service before executing this plan.
+
 ## Existing Pages (on bitcoinsapi.com)
 - `/bitcoin-mcp-setup-guide` — MCP setup walkthrough
 - `/bitcoin-api-for-ai-agents` — AI agent positioning page

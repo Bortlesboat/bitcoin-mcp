@@ -33,4 +33,4 @@ Paste any error messages or logs here.
 - Python version: [e.g., 3.12]
 - bitcoin-mcp version: [e.g., 0.5.0]
 - AI platform: [e.g., Claude Desktop, Cursor, VS Code]
-- Bitcoin node: [local node / hosted Satoshi API / none]
+- Bitcoin backend: [local node / configured SATOSHI_API_URL / none]

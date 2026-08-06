@@ -1,7 +1,7 @@
 {
   "name": "bitcoin-mcp",
   "version": "0.5.1",
-  "tool_count": 49,
+  "tool_count": 50,
   "tools": [
     {
       "name": "get_fee_recommendation",
@@ -189,6 +189,11 @@
       "category": "Indexed Address"
     },
     {
+      "name": "get_address_transactions",
+      "description": "Transaction history with per-transaction value details for an address",
+      "category": "Indexed Address"
+    },
+    {
       "name": "get_indexed_transaction",
       "description": "Enriched transaction with resolved input addresses and spent status",
       "category": "Indexed Address"
@@ -244,9 +249,17 @@
       "category": "Utility"
     },
     {
-      "name": "query_remote_api",
-      "description": "Query the Satoshi API directly with optional L402 micropayments",
+      "name": "decode_xpub",
+      "description": "Decode and inspect an extended public key",
       "category": "Utility"
+    }
+  ],
+  "conditional_tools": [
+    {
+      "name": "query_remote_api",
+      "description": "Query the explicitly configured Satoshi API with optional L402 micropayments",
+      "category": "Remote API",
+      "requires": ["SATOSHI_API_URL", "bitcoin-mcp[l402]"]
     }
   ]
 }

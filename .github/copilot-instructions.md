@@ -1,22 +1,21 @@
 # bitcoin-mcp Copilot Instructions
 
-`bitcoin-mcp` gives MCP-compatible agents Bitcoin tools and falls back to Satoshi API when no local Bitcoin node is configured.
+`bitcoin-mcp` gives MCP-compatible agents Bitcoin tools backed by a local Bitcoin node or an explicitly configured compatible API.
 
 ## Rules
 
-- Tools must work against both local Bitcoin Core/Knots and the hosted Satoshi API fallback.
+- Tools must work against both local Bitcoin Core/Knots and explicitly configured Satoshi API-compatible backends.
 - Keep tool docstrings clear because they appear directly in MCP client UIs.
 - Preserve stable tool signatures unless making a major-version change.
-- Keep Satoshi API fallback paths canonical and versioned (`/api/v1`).
+- Keep Satoshi API-compatible paths canonical and versioned (`/api/v1`).
 - Do not commit API keys, registry tokens, wallet material, or local node credentials.
 
-## Satoshi API Links
+## Satoshi API Reference
 
-- Hosted API: https://bitcoinsapi.com
-- API docs: https://bitcoinsapi.com/docs
-- Agent overview: https://bitcoinsapi.com/llms.txt
+- Source: https://github.com/Bortlesboat/bitcoin-api
 - Agent integration guide: https://github.com/Bortlesboat/bitcoin-api/blob/main/docs/AGENT_INTEGRATION.md
-- x402 first paid call: https://bitcoinsapi.com/x402/start
+
+The former public deployment at bitcoinsapi.com is paused. Do not describe it as an available default or direct users to its signup and x402 routes.
 
 ## Verification
 

@@ -2,6 +2,8 @@
 
 *Created: 2026-03-17*
 
+> **Status (2026-08-06): Historical planning document.** The public Satoshi API deployment is paused; do not launch this referral program unless the service and its billing/signup flow are intentionally restored and reverified.
+
 ---
 
 ## Assessment

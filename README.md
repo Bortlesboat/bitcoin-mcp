@@ -1,23 +1,26 @@
 # bitcoin-mcp
 <!-- mcp-name: io.github.Bortlesboat/bitcoin-mcp -->
 
-Give any AI agent Bitcoin superpowers — fee intelligence, mempool analysis, and 49 tools. Zero config, one command.
+Give any AI agent Bitcoin superpowers — fee intelligence, mempool analysis, and 50 tools backed by your Bitcoin node or compatible API.
 
 [![PyPI](https://img.shields.io/pypi/v/bitcoin-mcp)](https://pypi.org/project/bitcoin-mcp/)
 [![Downloads](https://img.shields.io/pypi/dm/bitcoin-mcp)](https://pypi.org/project/bitcoin-mcp/)
 [![Tests](https://github.com/Bortlesboat/bitcoin-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/Bortlesboat/bitcoin-mcp/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Powered by Satoshi API](https://img.shields.io/badge/Powered%20by-Satoshi%20API-F7931A)](https://bitcoinsapi.com?utm_source=github&utm_medium=badge&utm_campaign=bitcoin-mcp)
 [![OpenSats](https://img.shields.io/badge/Support-OpenSats-F7931A)](https://opensats.org)
 
-**49 tools** · **126 tests** · **6 prompts** · **8 resources** · **Zero config** · **MIT licensed**
+**50 standard tools** · **6 prompts** · **8 resources** · **Bitcoin Core or compatible API backend** · **MIT licensed**
 
 > If bitcoin-mcp is useful to you, consider giving it a [star](https://github.com/Bortlesboat/bitcoin-mcp/stargazers) — it helps others discover the project.
 
 ```bash
 pip install bitcoin-mcp
 ```
+
+bitcoin-mcp needs a Bitcoin data backend. It auto-detects a local Bitcoin Core/Knots node from its cookie or RPC settings. Without a local node, set `SATOSHI_API_URL` to a compatible deployment.
+
+> **Service status:** the public Satoshi API previously hosted at `bitcoinsapi.com` is paused and should not be treated as a working default. Use a local node or an explicitly configured compatible API.
 
 ## Quick Start
 
@@ -102,10 +105,12 @@ Or with docker compose:
 docker compose up
 ```
 
-Pass environment variables to connect to a local Bitcoin Core node or set your API key:
+Pass environment variables to connect to a local Bitcoin Core node or a compatible API:
 
 ```bash
-docker run -i -e SATOSHI_API_KEY=your-key bitcoin-mcp
+docker run -i -e BITCOIN_RPC_HOST=host.docker.internal -e BITCOIN_RPC_PORT=8332 bitcoin-mcp
+# or
+docker run -i -e SATOSHI_API_URL=https://your-api.example bitcoin-mcp
 ```
 
 ### Ask whether to send Bitcoin now
@@ -118,26 +123,24 @@ Expected path:
 
 1. The agent calls `get_fee_recommendation`.
 2. The answer gives a clear send now or wait recommendation with fee rates in sat/vB.
-3. If you will repeat this check, register a free Satoshi API key and add `SATOSHI_API_KEY` to your MCP config.
-4. If you need a one-off paid API call instead of the MCP tool, use `https://bitcoinsapi.com/x402/start`.
+3. If the backend is unavailable, configure a local node or set `SATOSHI_API_URL` before retrying.
 
 After it works, Star this repo and share a short showcase with the prompt, tool call, and outcome so other Bitcoin agent builders can see the path.
 
 ## Agent Integration
 
-For repos that need Bitcoin tools, add `bitcoin-mcp` to the agent's MCP config and link the Satoshi API integration kit:
+For repos that need Bitcoin tools, add `bitcoin-mcp` to the agent's MCP config and configure one of its supported backends:
 
-- Satoshi API agent guide: https://github.com/Bortlesboat/bitcoin-api/blob/main/docs/AGENT_INTEGRATION.md
-- Agent-readable overview: https://bitcoinsapi.com/llms.txt
-- MCP setup: https://bitcoinsapi.com/mcp-setup
-- x402 first paid call: https://bitcoinsapi.com/x402/start
+- Local Bitcoin Core/Knots RPC settings: `BITCOIN_RPC_HOST`, `BITCOIN_RPC_PORT`, and optional credentials or datadir
+- Compatible remote API: `SATOSHI_API_URL` and, when required, `SATOSHI_API_KEY`
+- Satoshi API source and integration reference: https://github.com/Bortlesboat/bitcoin-api/blob/main/docs/AGENT_INTEGRATION.md
 
 Generated HTTP examples should use canonical Satoshi API `/api/v1` paths.
 
 ## Why bitcoin-mcp?
 
 - **Fee intelligence that saves real money** — know the cheapest time to send, compare fee tiers, estimate exact costs before broadcasting
-- **Zero config** — works instantly with the free hosted [Satoshi API](https://bitcoinsapi.com?utm_source=github&utm_medium=readme&utm_campaign=bitcoin-mcp), or connect your own Bitcoin Core node
+- **Backend choice** — use your own Bitcoin Core/Knots node or an explicitly configured compatible API
 - **First Bitcoin MCP server on the [Anthropic Registry](https://registry.modelcontextprotocol.io)**
 
 ## Top Use Cases
@@ -155,7 +158,7 @@ Ask your AI agent:
 ## Full Tool Reference
 
 <details>
-<summary>All 49 tools by category</summary>
+<summary>All 50 standard tools by category</summary>
 
 ### Fee Intelligence
 | Tool | Description |
@@ -222,6 +225,7 @@ Ask your AI agent:
 |------|-------------|
 | `get_address_balance` | Total received/sent/balance, tx count, first/last seen |
 | `get_address_history` | Paginated transaction history with net value change |
+| `get_address_transactions` | Transaction history with per-transaction value details |
 | `get_indexed_transaction` | Enriched tx with resolved input addresses + spent status |
 | `get_indexer_status` | Sync progress, ETA, blocks/sec |
 
@@ -240,21 +244,17 @@ Ask your AI agent:
 | `decode_bolt11_invoice` | Decode a Lightning Network BOLT11 invoice |
 | `describe_rpc_command` | Help text for any Bitcoin Core RPC command |
 | `list_rpc_commands` | List all available RPC commands |
-| `query_remote_api` | Query the Satoshi API directly |
+| `decode_xpub` | Decode and inspect an extended public key |
+
+### Optional Remote API Tool
+
+`query_remote_api` is registered only when `SATOSHI_API_URL` is set and the `l402` extra is installed. It queries canonical `/api/v1` routes on that explicitly configured endpoint.
 
 </details>
 
-## Get More Requests (Free)
-
-bitcoin-mcp works immediately with 1,000 requests/day (anonymous). Register for a free API key to get **10,000/day (10x)**:
-
-1. Visit [bitcoinsapi.com](https://bitcoinsapi.com/#get-api-key?utm_source=github&utm_medium=readme&utm_campaign=bitcoin-mcp-register)
-2. Register for a free key (takes 10 seconds)
-3. Set the `SATOSHI_API_KEY` environment variable in your MCP config
-
 ## Configuration
 
-All environment variables are optional. bitcoin-mcp falls back to the free hosted [Satoshi API](https://bitcoinsapi.com) when no local node is configured.
+Configure either a local Bitcoin Core/Knots node or a compatible remote API. If neither is available, bitcoin-mcp exits its connection check with a setup error instead of silently selecting an unavailable public service.
 
 ### CLI Flags
 
@@ -278,7 +278,7 @@ bitcoin-mcp --transport sse --host 127.0.0.1 --port 8000 --log-level DEBUG
 | `BITCOIN_RPC_HOST` | Bitcoin Core RPC host | `127.0.0.1` |
 | `BITCOIN_RPC_PORT` | Bitcoin Core RPC port | Auto by network |
 | `BITCOIN_NETWORK` | `mainnet`, `testnet`, `signet`, or `regtest` | `mainnet` |
-| `SATOSHI_API_URL` | Override hosted API URL | `https://bitcoinsapi.com` |
+| `SATOSHI_API_URL` | Compatible Satoshi API base URL | None |
 | `SATOSHI_API_KEY` | API key for authenticated access | None |
 
 To connect to a local Bitcoin Core node:
@@ -308,7 +308,7 @@ To connect to a local Bitcoin Core node:
 
 ## Links
 
-- [Satoshi API](https://bitcoinsapi.com?utm_source=github&utm_medium=readme&utm_campaign=bitcoin-mcp) — the hosted backend powering zero-config mode
+- [Satoshi API source](https://github.com/Bortlesboat/bitcoin-api) — optional compatible backend implementation (public hosted service currently paused)
 - [Anthropic MCP Registry](https://registry.modelcontextprotocol.io) — `io.github.Bortlesboat/bitcoin-mcp`
 - [PyPI](https://pypi.org/project/bitcoin-mcp/)
 - [GitHub](https://github.com/Bortlesboat/bitcoin-mcp)
@@ -334,10 +334,10 @@ Please report security vulnerabilities privately — see [SECURITY.md](SECURITY.
 
 ## About
 
-bitcoin-mcp is created and maintained by [Andrew Barnes](https://github.com/Bortlesboat). It is the most comprehensive Bitcoin MCP server available, bridging AI agents and Bitcoin infrastructure through the Model Context Protocol.
+bitcoin-mcp is created and maintained by [Andrew Barnes](https://github.com/Bortlesboat), bridging AI agents and Bitcoin infrastructure through the Model Context Protocol.
 
 Related projects:
-- [Satoshi API](https://github.com/Bortlesboat/bitcoin-api) — Bitcoin fee intelligence API, 108 endpoints (powers zero-config mode)
+- [Satoshi API](https://github.com/Bortlesboat/bitcoin-api) — Bitcoin fee intelligence API, 108 endpoints, usable as a self-hosted compatible backend
 - [ChainPulse](https://github.com/Bortlesboat/chainpulse) — AI-powered Bitcoin network intelligence CLI
 - [BAIP-1](https://github.com/Bortlesboat/baip-python) — Bitcoin Agent Identity Protocol
 - [bitcoin-fee-observatory](https://github.com/Bortlesboat/bitcoin-fee-observatory) — Fee market analytics dashboard

@@ -11,9 +11,9 @@ def test_readme_documents_one_fee_decision_activation_path() -> None:
         "Ask whether to send Bitcoin now",
         "get_fee_recommendation",
         "send now or wait",
-        "SATOSHI_API_KEY",
+        "SATOSHI_API_URL",
+        "public Satoshi API previously hosted at `bitcoinsapi.com` is paused",
         "Star this repo",
         "showcase",
-        "https://bitcoinsapi.com/x402/start",
     ]:
         assert phrase in readme
