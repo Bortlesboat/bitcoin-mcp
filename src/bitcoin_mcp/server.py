@@ -1,4 +1,4 @@
-"""Bitcoin MCP Server — 49 tools for AI agents to query Bitcoin."""
+"""Bitcoin MCP Server — 50 standard tools for AI agents to query Bitcoin."""
 
 import argparse
 import hashlib
@@ -28,7 +28,7 @@ mcp = FastMCP(
     "bitcoin",
     instructions=(
         "Query and analyze the Bitcoin network. "
-        "Works automatically with a local Bitcoin Core/Knots node or the free hosted Satoshi API — no configuration needed. "
+        "Uses a local Bitcoin Core/Knots node or a compatible API configured with SATOSHI_API_URL. "
         "Provides mempool analysis, fee estimation, block inspection, "
         "transaction decoding with inscription detection, and mining insights."
     ),
@@ -37,8 +37,6 @@ mcp = FastMCP(
 # --- RPC connection (lazy singleton) ---
 
 _rpc = None  # BitcoinRPC or _SatoshiRPC
-
-_DEFAULT_API_URL = "https://bitcoinsapi.com"
 
 NETWORK_PORTS = {
     "mainnet": 8332,
@@ -114,13 +112,11 @@ class _SatoshiRPC:
 
 
 def get_rpc():
-    """Return an RPC connection — local node preferred, Satoshi API fallback.
+    """Return an RPC connection using an explicitly available backend.
 
     Connection priority:
     1. Local Bitcoin Core node (if RPC credentials or cookie file found)
-    2. Satoshi API RPC proxy (SATOSHI_API_URL env var, or default https://bitcoinsapi.com)
-
-    This means bitcoin-mcp works with ZERO configuration for most users.
+    2. Compatible Satoshi API RPC proxy configured with SATOSHI_API_URL
     """
     global _rpc
     if _rpc is not None:
@@ -150,11 +146,16 @@ def get_rpc():
         if has_explicit_rpc:
             # User explicitly configured local node but it failed — don't silently fall back
             raise
-        # No local node found — fall through to Satoshi API
+        # No local node found — use a configured compatible API, if present.
 
-    # 2. Fall back to Satoshi API RPC proxy
-    api_url = os.getenv("SATOSHI_API_URL", _DEFAULT_API_URL)
-    logger.info("No local node found — using Satoshi API (%s)", api_url)
+    # 2. Use a configured Satoshi API-compatible RPC proxy.
+    api_url = os.getenv("SATOSHI_API_URL")
+    if not api_url:
+        raise ConnectionError(
+            "No Bitcoin backend available. Configure a local Bitcoin Core/Knots node "
+            "or set SATOSHI_API_URL to a compatible API endpoint."
+        )
+    logger.info("No local node found — using configured API (%s)", api_url)
     _rpc = _SatoshiRPC(api_url)
     return _rpc
 
@@ -1321,19 +1322,23 @@ def _connection_hint(error: Exception) -> str:
     """Return human-readable troubleshooting tips for common RPC errors."""
     msg = str(error).lower()
     api_tip = (
-        " bitcoin-mcp automatically falls back to the free hosted Satoshi API "
-        "(https://bitcoinsapi.com) when no local node is available — "
-        "check your internet connection if both are failing."
+        " If no local node is available, set SATOSHI_API_URL to a compatible "
+        "Satoshi API deployment."
     )
-    if "no bitcoin node connection" in msg or "no rpc credentials" in msg:
+    if (
+        "no bitcoin backend available" in msg
+        or "no bitcoin node connection" in msg
+        or "no rpc credentials" in msg
+    ):
         return (
-            "No Bitcoin node detected and the hosted Satoshi API is unreachable. "
-            "Check your internet connection, or install Bitcoin Core with 'server=1' in bitcoin.conf."
+            "No Bitcoin backend is configured. Install Bitcoin Core with 'server=1' "
+            "in bitcoin.conf, or set SATOSHI_API_URL to a compatible API endpoint."
         )
     if "satoshi api" in msg or "cannot reach" in msg:
         return (
-            "Cannot reach the hosted Satoshi API. Check your internet connection. "
-            "If you want to use a local node instead, install Bitcoin Core with 'server=1' in bitcoin.conf."
+            "Cannot reach the configured Satoshi API endpoint. Check SATOSHI_API_URL, "
+            "your credentials, and network connection. To use a local node instead, "
+            "install Bitcoin Core with 'server=1' in bitcoin.conf."
         )
     if isinstance(error, ConnectionRefusedError) or "connection refused" in msg:
         return (
@@ -1414,7 +1419,13 @@ def resource_fees_history() -> str:
 
     Falls back gracefully when the indexed API is unavailable.
     """
-    api_url = os.getenv("SATOSHI_API_URL", _DEFAULT_API_URL)
+    api_url = os.getenv("SATOSHI_API_URL")
+    if not api_url:
+        return json.dumps({
+            "source": "bitcoinlib_rpc_fallback",
+            "error": "SATOSHI_API_URL is not configured",
+            "fallback_note": "Historical fee data requires a compatible API; use bitcoin://fees/current for live estimates."
+        })
     url = f"{api_url}/api/v1/fees/history"
     req = urllib.request.Request(url, headers={"User-Agent": "bitcoin-mcp"})
     api_key = os.getenv("SATOSHI_API_KEY")
@@ -1431,19 +1442,19 @@ def resource_fees_history() -> str:
             return json.dumps({
                 "source": "bitcoinlib_rpc_fallback",
                 "error": data.get("error", f"HTTP {e.code}"),
-                "fallback_note": "Historical fee API unavailable; current estimates returned instead."
+                "fallback_note": "Historical fee API unavailable; use bitcoin://fees/current for live estimates."
             })
         except Exception:
             return json.dumps({
                 "source": "bitcoinlib_rpc_fallback",
                 "error": f"HTTP {e.code}: {body[:200]}",
-                "fallback_note": "Historical fee API unavailable; current estimates returned instead."
+                "fallback_note": "Historical fee API unavailable; use bitcoin://fees/current for live estimates."
             })
     except urllib.error.URLError:
         return json.dumps({
             "source": "bitcoinlib_rpc_fallback",
             "error": "Indexer unavailable",
-            "fallback_note": "Historical fee API unavailable; current estimates returned instead."
+            "fallback_note": "Historical fee API unavailable; use bitcoin://fees/current for live estimates."
         })
 
     return json.dumps(data)
@@ -1613,7 +1624,10 @@ def _query_indexed_api(path: str) -> dict:
 
     Returns parsed JSON on success, or an error dict on failure.
     """
-    api_url = os.getenv("SATOSHI_API_URL", _DEFAULT_API_URL).rstrip("/")
+    api_url = os.getenv("SATOSHI_API_URL")
+    if not api_url:
+        return {"error": "SATOSHI_API_URL is not configured"}
+    api_url = api_url.rstrip("/")
     url = f"{api_url}/api/v1/indexed/{path}"
     req = urllib.request.Request(url, headers={"User-Agent": "bitcoin-mcp"})
     api_key = os.getenv("SATOSHI_API_KEY")

@@ -1,6 +1,6 @@
 # Contributing to bitcoin-mcp
 
-Thanks for your interest in contributing! bitcoin-mcp is the most comprehensive Bitcoin MCP server — 49 tools, 6 prompts, 7 resources, zero config. Every contribution makes AI agents smarter about Bitcoin.
+Thanks for your interest in contributing! bitcoin-mcp is a comprehensive Bitcoin MCP server with 50 standard tools, 6 prompts, and 8 resources. Every contribution makes AI agents smarter about Bitcoin.
 
 ## Quick Start
 
@@ -93,4 +93,4 @@ pytest tests/ --tb=short           # compact output
 
 ## Questions?
 
-Open an issue or reach out at https://bitcoinsapi.com.
+Open an issue in this repository.

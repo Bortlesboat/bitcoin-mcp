@@ -3,6 +3,8 @@
 *Created: 2026-03-17*
 *Parent strategy: Satoshi API CONTENT_STRATEGY.md (Pillar 2: AI + Bitcoin)*
 
+> **Status (2026-08-06): Historical planning document.** The public Satoshi API deployment is paused. Do not publish the hosted-service calls to action below unless the service is intentionally restored and reverified.
+
 ---
 
 ## Content Queue (4 pieces, prioritized)

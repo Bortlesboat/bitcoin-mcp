@@ -257,6 +257,7 @@ class TestFees:
         def mock_urlopen(req, timeout=None):
             return MockResponse()
 
+        monkeypatch.setenv("SATOSHI_API_URL", "https://test.example.com")
         monkeypatch.setattr("urllib.request.urlopen", mock_urlopen)
 
         from bitcoin_mcp.server import resource_fees_history
@@ -272,13 +273,14 @@ class TestFees:
 
         def mock_urlopen(req, timeout=None):
             raise urllib.error.HTTPError(
-                url="https://bitcoinsapi.com/api/v1/fees/history",
+                url="https://test.example.com/api/v1/fees/history",
                 code=502,
                 msg="Bad Gateway",
                 hdrs={},
                 fp=None
             )
 
+        monkeypatch.setenv("SATOSHI_API_URL", "https://test.example.com")
         monkeypatch.setattr("urllib.request.urlopen", mock_urlopen)
 
         from bitcoin_mcp.server import resource_fees_history
@@ -286,6 +288,19 @@ class TestFees:
         assert result["source"] == "bitcoinlib_rpc_fallback"
         assert "error" in result
         assert "fallback_note" in result
+
+    def test_resource_fees_history_without_api_skips_network(self, mock_rpc, monkeypatch):
+        """Historical fees should fail fast when no compatible API is configured."""
+        monkeypatch.delenv("SATOSHI_API_URL", raising=False)
+        monkeypatch.setattr(
+            "urllib.request.urlopen",
+            lambda *args, **kwargs: pytest.fail("network should not be called"),
+        )
+
+        from bitcoin_mcp.server import resource_fees_history
+        result = json.loads(resource_fees_history())
+        assert result["error"] == "SATOSHI_API_URL is not configured"
+        assert "bitcoin://fees/current" in result["fallback_note"]
 
 
 class TestMining:
@@ -486,6 +501,12 @@ class TestConnectionHint:
         hint = _connection_hint(ConnectionRefusedError("Connection refused"))
         assert "Connection refused" in hint
         assert "server=1" in hint
+
+    def test_missing_backend(self):
+        from bitcoin_mcp.server import _connection_hint
+        hint = _connection_hint(ConnectionError("No Bitcoin backend available"))
+        assert hint.startswith("No Bitcoin backend is configured")
+        assert "SATOSHI_API_URL" in hint
 
     def test_auth_failure(self):
         from bitcoin_mcp.server import _connection_hint
@@ -1189,6 +1210,10 @@ class TestQueryRemoteApi:
 class TestIndexedAddress:
     """Tests for indexed address tools (get_address_balance, get_address_history, etc.)."""
 
+    @pytest.fixture(autouse=True)
+    def _configured_api(self, monkeypatch):
+        monkeypatch.setenv("SATOSHI_API_URL", "https://test.example.com")
+
     def _mock_urlopen(self, response_data, monkeypatch):
         """Helper to mock urllib.request.urlopen with a canned response."""
         import io
@@ -1207,6 +1232,19 @@ class TestIndexedAddress:
             "urllib.request.urlopen",
             lambda req, timeout=None: MockResponse(response_data),
         )
+
+    def test_indexed_api_without_url_skips_network(self, monkeypatch):
+        """Indexed API calls should not target an implicit hosted service."""
+        monkeypatch.delenv("SATOSHI_API_URL", raising=False)
+        monkeypatch.setattr(
+            "urllib.request.urlopen",
+            lambda *args, **kwargs: pytest.fail("network should not be called"),
+        )
+
+        from bitcoin_mcp.server import _query_indexed_api
+        assert _query_indexed_api("status") == {
+            "error": "SATOSHI_API_URL is not configured"
+        }
 
     def test_get_address_balance_success(self, mock_rpc, monkeypatch):
         from bitcoin_mcp.server import get_address_balance
@@ -1611,8 +1649,8 @@ class TestSatoshiRPC:
         assert callable(client.getblockchaininfo)
         assert callable(client.estimatesmartfee)
 
-    def test_get_rpc_falls_back_to_satoshi(self, monkeypatch):
-        """get_rpc() should fall back to _SatoshiRPC when no local node."""
+    def test_get_rpc_requires_configured_backend(self, monkeypatch):
+        """get_rpc() should fail clearly when neither backend is configured."""
         import bitcoin_mcp.server as srv
         srv._rpc = None  # reset singleton
         # Clear all RPC env vars
@@ -1621,9 +1659,8 @@ class TestSatoshiRPC:
             monkeypatch.delenv(key, raising=False)
         # Mock BitcoinRPC to raise (simulating no local node)
         monkeypatch.setattr(srv, "BitcoinRPC", lambda **kw: (_ for _ in ()).throw(ConnectionError("no cookie")))
-        rpc = srv.get_rpc()
-        assert isinstance(rpc, srv._SatoshiRPC)
-        assert "bitcoinsapi.com" in rpc._url
+        with pytest.raises(ConnectionError, match="set SATOSHI_API_URL"):
+            srv.get_rpc()
         srv._rpc = None  # cleanup
 
     def test_get_rpc_respects_custom_api_url(self, monkeypatch):

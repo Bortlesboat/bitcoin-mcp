@@ -2,6 +2,8 @@
 
 *Created: 2026-03-17*
 
+> **Status (2026-08-06): Historical planning document.** The public Satoshi API deployment is paused, so the zero-config and hosted-service claims below are not current product behavior and must not be reused without revalidation.
+
 ---
 
 ## Current State
