@@ -25,7 +25,7 @@ classifiers = [
     "Intended Audience :: Developers",
 ]
 dependencies = [
-    "mcp[cli]>=1.2.0",
+    "mcp[cli]>=1.2.0,<2.0.0",
     "bitcoinlib-rpc>=0.1.0",
 ]
 

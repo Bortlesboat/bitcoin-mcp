@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - A remote Satoshi API backend now requires an explicit `SATOSHI_API_URL`; the paused public deployment is no longer selected as a silent default.
 - Setup documentation and registry metadata now require a local Bitcoin Core/Knots node or a compatible configured API.
+- The MCP SDK is constrained to the compatible 1.x series until the server migrates from the removed `mcp.server.fastmcp` API.
 
 ## [0.5.0] - 2026-03-14
 
