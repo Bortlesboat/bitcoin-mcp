@@ -29,7 +29,7 @@ MCP server wrapping Bitcoin Core/Knots RPC. It auto-detects a local node and can
 - No breaking changes to tool signatures without a major version bump
 - Tool docstrings appear in MCP client UIs — keep them accurate and useful
 - Discoverability matters: Glama/Smithery rank by stars + docs. Keep README and per-tool examples current.
-- Keep optional Satoshi API integration docs aligned with https://github.com/Bortlesboat/bitcoin-api/blob/main/docs/AGENT_INTEGRATION.md
+- Keep optional Satoshi API integration docs aligned with https://github.com/Bortlesboat/bitcoin-api/blob/master/docs/AGENT_INTEGRATION.md
 
 ## Current focus
 - Improve Glama ranking: add per-tool usage examples, increase release cadence

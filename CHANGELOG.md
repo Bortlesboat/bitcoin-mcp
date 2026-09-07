@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Installation examples use current source until the SDK compatibility and backend fixes reach PyPI.
+- CI installs the optional `l402` extra so its tests run in the Python matrix.
+- Corrected integration links and the project funding route.
 - A remote Satoshi API backend now requires an explicit `SATOSHI_API_URL`; the paused public deployment is no longer selected as a silent default.
 - Setup documentation and registry metadata now require a local Bitcoin Core/Knots node or a compatible configured API.
 - The MCP SDK is constrained to the compatible 1.x series until the server migrates from the removed `mcp.server.fastmcp` API.

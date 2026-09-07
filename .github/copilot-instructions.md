@@ -13,7 +13,7 @@
 ## Satoshi API Reference
 
 - Source: https://github.com/Bortlesboat/bitcoin-api
-- Agent integration guide: https://github.com/Bortlesboat/bitcoin-api/blob/main/docs/AGENT_INTEGRATION.md
+- Agent integration guide: https://github.com/Bortlesboat/bitcoin-api/blob/master/docs/AGENT_INTEGRATION.md
 
 The former public deployment at bitcoinsapi.com is paused. Do not describe it as an available default or direct users to its signup and x402 routes.
 
