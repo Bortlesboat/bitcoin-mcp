@@ -15,7 +15,7 @@ Give any AI agent Bitcoin superpowers — fee intelligence, mempool analysis, an
 > If bitcoin-mcp is useful to you, consider giving it a [star](https://github.com/Bortlesboat/bitcoin-mcp/stargazers) — it helps others discover the project.
 
 ```bash
-pip install "git+https://github.com/Bortlesboat/bitcoin-mcp.git"
+pip install "bitcoin-mcp>=0.5.2"
 ```
 
 bitcoin-mcp needs a Bitcoin data backend. It auto-detects a local Bitcoin Core/Knots node from its cookie or RPC settings. Without a local node, set `SATOSHI_API_URL` to a compatible deployment.
@@ -24,7 +24,7 @@ bitcoin-mcp needs a Bitcoin data backend. It auto-detects a local Bitcoin Core/K
 
 ## Install status
 
-As of September 7, 2026, PyPI release 0.5.1 does not contain the current source fixes for MCP SDK compatibility and explicit backend selection. The commands here install the current GitHub source, which constrains the SDK to 1.x. A new PyPI release is still pending.
+Version 0.5.2 includes the MCP SDK 1.x compatibility constraint and explicit backend selection. Upgrade older installations to receive these fixes.
 
 ## Quick Start
 
@@ -37,7 +37,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "bitcoin": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/Bortlesboat/bitcoin-mcp.git", "bitcoin-mcp"]
+      "args": ["--from", "bitcoin-mcp>=0.5.2", "bitcoin-mcp"]
     }
   }
 }
@@ -46,7 +46,7 @@ Add to your `claude_desktop_config.json`:
 ### Claude Code
 
 ```bash
-claude mcp add bitcoin -- uvx --from git+https://github.com/Bortlesboat/bitcoin-mcp.git bitcoin-mcp
+claude mcp add bitcoin -- uvx --from "bitcoin-mcp>=0.5.2" bitcoin-mcp
 ```
 
 ### Cursor
@@ -58,7 +58,7 @@ Add to `.cursor/mcp.json`:
   "mcpServers": {
     "bitcoin": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/Bortlesboat/bitcoin-mcp.git", "bitcoin-mcp"]
+      "args": ["--from", "bitcoin-mcp>=0.5.2", "bitcoin-mcp"]
     }
   }
 }
@@ -73,7 +73,7 @@ Add to `.vscode/mcp.json`:
   "servers": {
     "bitcoin": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/Bortlesboat/bitcoin-mcp.git", "bitcoin-mcp"]
+      "args": ["--from", "bitcoin-mcp>=0.5.2", "bitcoin-mcp"]
     }
   }
 }
@@ -88,7 +88,7 @@ Add to your Zed `settings.json` under `context_servers`:
   "context_servers": {
     "bitcoin": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/Bortlesboat/bitcoin-mcp.git", "bitcoin-mcp"]
+      "args": ["--from", "bitcoin-mcp>=0.5.2", "bitcoin-mcp"]
     }
   }
 }
@@ -292,7 +292,7 @@ To connect to a local Bitcoin Core node:
   "mcpServers": {
     "bitcoin": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/Bortlesboat/bitcoin-mcp.git", "bitcoin-mcp"],
+      "args": ["--from", "bitcoin-mcp>=0.5.2", "bitcoin-mcp"],
       "env": {
         "BITCOIN_RPC_HOST": "127.0.0.1",
         "BITCOIN_RPC_PORT": "8332"
