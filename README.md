@@ -8,19 +8,23 @@ Give any AI agent Bitcoin superpowers — fee intelligence, mempool analysis, an
 [![Tests](https://github.com/Bortlesboat/bitcoin-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/Bortlesboat/bitcoin-mcp/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![OpenSats](https://img.shields.io/badge/Support-OpenSats-F7931A)](https://opensats.org)
+[![GitHub Sponsors](https://img.shields.io/badge/Support-GitHub%20Sponsors-ea4aaa)](https://github.com/sponsors/Bortlesboat)
 
 **50 standard tools** · **6 prompts** · **8 resources** · **Bitcoin Core or compatible API backend** · **MIT licensed**
 
 > If bitcoin-mcp is useful to you, consider giving it a [star](https://github.com/Bortlesboat/bitcoin-mcp/stargazers) — it helps others discover the project.
 
 ```bash
-pip install bitcoin-mcp
+pip install "git+https://github.com/Bortlesboat/bitcoin-mcp.git"
 ```
 
 bitcoin-mcp needs a Bitcoin data backend. It auto-detects a local Bitcoin Core/Knots node from its cookie or RPC settings. Without a local node, set `SATOSHI_API_URL` to a compatible deployment.
 
 > **Service status:** the public Satoshi API previously hosted at `bitcoinsapi.com` is paused and should not be treated as a working default. Use a local node or an explicitly configured compatible API.
+
+## Install status
+
+As of September 7, 2026, PyPI release 0.5.1 does not contain the current source fixes for MCP SDK compatibility and explicit backend selection. The commands here install the current GitHub source, which constrains the SDK to 1.x. A new PyPI release is still pending.
 
 ## Quick Start
 
@@ -33,7 +37,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "bitcoin": {
       "command": "uvx",
-      "args": ["bitcoin-mcp"]
+      "args": ["--from", "git+https://github.com/Bortlesboat/bitcoin-mcp.git", "bitcoin-mcp"]
     }
   }
 }
@@ -42,7 +46,7 @@ Add to your `claude_desktop_config.json`:
 ### Claude Code
 
 ```bash
-claude mcp add bitcoin -- uvx bitcoin-mcp
+claude mcp add bitcoin -- uvx --from git+https://github.com/Bortlesboat/bitcoin-mcp.git bitcoin-mcp
 ```
 
 ### Cursor
@@ -54,7 +58,7 @@ Add to `.cursor/mcp.json`:
   "mcpServers": {
     "bitcoin": {
       "command": "uvx",
-      "args": ["bitcoin-mcp"]
+      "args": ["--from", "git+https://github.com/Bortlesboat/bitcoin-mcp.git", "bitcoin-mcp"]
     }
   }
 }
@@ -69,7 +73,7 @@ Add to `.vscode/mcp.json`:
   "servers": {
     "bitcoin": {
       "command": "uvx",
-      "args": ["bitcoin-mcp"]
+      "args": ["--from", "git+https://github.com/Bortlesboat/bitcoin-mcp.git", "bitcoin-mcp"]
     }
   }
 }
@@ -84,7 +88,7 @@ Add to your Zed `settings.json` under `context_servers`:
   "context_servers": {
     "bitcoin": {
       "command": "uvx",
-      "args": ["bitcoin-mcp"]
+      "args": ["--from", "git+https://github.com/Bortlesboat/bitcoin-mcp.git", "bitcoin-mcp"]
     }
   }
 }
@@ -133,7 +137,7 @@ For repos that need Bitcoin tools, add `bitcoin-mcp` to the agent's MCP config a
 
 - Local Bitcoin Core/Knots RPC settings: `BITCOIN_RPC_HOST`, `BITCOIN_RPC_PORT`, and optional credentials or datadir
 - Compatible remote API: `SATOSHI_API_URL` and, when required, `SATOSHI_API_KEY`
-- Satoshi API source and integration reference: https://github.com/Bortlesboat/bitcoin-api/blob/main/docs/AGENT_INTEGRATION.md
+- Satoshi API source and integration reference: https://github.com/Bortlesboat/bitcoin-api/blob/master/docs/AGENT_INTEGRATION.md
 
 Generated HTTP examples should use canonical Satoshi API `/api/v1` paths.
 
@@ -141,7 +145,7 @@ Generated HTTP examples should use canonical Satoshi API `/api/v1` paths.
 
 - **Fee intelligence that saves real money** — know the cheapest time to send, compare fee tiers, estimate exact costs before broadcasting
 - **Backend choice** — use your own Bitcoin Core/Knots node or an explicitly configured compatible API
-- **First Bitcoin MCP server on the [Anthropic Registry](https://registry.modelcontextprotocol.io)**
+- **Open source MCP tooling** — tool definitions, tests, and client configuration examples are available in this repository
 
 ## Top Use Cases
 
@@ -288,7 +292,7 @@ To connect to a local Bitcoin Core node:
   "mcpServers": {
     "bitcoin": {
       "command": "uvx",
-      "args": ["bitcoin-mcp"],
+      "args": ["--from", "git+https://github.com/Bortlesboat/bitcoin-mcp.git", "bitcoin-mcp"],
       "env": {
         "BITCOIN_RPC_HOST": "127.0.0.1",
         "BITCOIN_RPC_PORT": "8332"
@@ -309,7 +313,7 @@ To connect to a local Bitcoin Core node:
 ## Links
 
 - [Satoshi API source](https://github.com/Bortlesboat/bitcoin-api) — optional compatible backend implementation (public hosted service currently paused)
-- [Anthropic MCP Registry](https://registry.modelcontextprotocol.io) — `io.github.Bortlesboat/bitcoin-mcp`
+- [MCP Registry](https://registry.modelcontextprotocol.io) — `io.github.Bortlesboat/bitcoin-mcp`
 - [PyPI](https://pypi.org/project/bitcoin-mcp/)
 - [GitHub](https://github.com/Bortlesboat/bitcoin-mcp)
 - [Full tool documentation](https://github.com/Bortlesboat/bitcoin-mcp#full-tool-reference)
@@ -324,7 +328,7 @@ See the [examples/](examples/) folder for documented usage patterns:
 
 ## Support This Project
 
-bitcoin-mcp is free, open-source Bitcoin infrastructure. Support development through [OpenSats](https://opensats.org).
+bitcoin-mcp is free, open-source Bitcoin infrastructure. Support development through [GitHub Sponsors](https://github.com/sponsors/Bortlesboat), reproducible issue reports, documentation improvements, and tested patches.
 
 ## Contributing
 

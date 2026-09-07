@@ -7,11 +7,11 @@ Thanks for your interest in contributing! bitcoin-mcp is a comprehensive Bitcoin
 ```bash
 git clone https://github.com/Bortlesboat/bitcoin-mcp.git
 cd bitcoin-mcp
-pip install -e ".[dev]"
+pip install -e ".[dev,l402]"
 pytest
 ```
 
-All tests pass without a Bitcoin node — everything is mocked.
+Tests run without a Bitcoin node. Install the `l402` extra above to include the optional remote-client tests. On September 7, 2026, the complete suite passed locally: 180 tests on Python 3.12. Use the CI results for checks on later commits.
 
 ## Where to Start
 
