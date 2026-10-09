@@ -332,6 +332,9 @@ bitcoin-mcp is free, open-source Bitcoin infrastructure. Support development thr
 
 ## Contributing
 
+Run the unit suite with `python -m pytest tests/`. For the optional Core/Knots
+checks over the MCP interface, see [real-node integration tests](docs/real-node-baseline.md).
+
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines, including how to add new tools and the PR checklist.
 
 Please report security vulnerabilities privately — see [SECURITY.md](SECURITY.md).
