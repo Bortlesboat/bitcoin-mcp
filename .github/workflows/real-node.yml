@@ -1,0 +1,63 @@
+name: Real-node integration
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "tests/integration/**"
+      - "pyproject.toml"
+      - ".github/workflows/real-node.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "tests/integration/**"
+      - "pyproject.toml"
+      - ".github/workflows/real-node.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    name: ${{ matrix.node.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node:
+          - name: Core 30.2
+            id: core-30.2
+            url: https://bitcoincore.org/bin/bitcoin-core-30.2/bitcoin-30.2-x86_64-linux-gnu.tar.gz
+            sha256: 6aa7bb4feb699c4c6262dd23e4004191f6df7f373b5d5978b5bcdd4bb72f75d8
+          - name: Knots 29.4.2.knots20260508
+            id: knots-29.4.2
+            url: https://bitcoinknots.org/files/29.x/29.4.2.knots20260508/bitcoin-29.4.2.knots20260508-x86_64-linux-gnu.tar.gz
+            sha256: b59d0445a317e21a03dc29425db3aba79b27d5125230b1a2b1dce62e120827c5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install project and tests
+        run: python -m pip install -e ".[dev]"
+      - name: Download and verify node
+        env:
+          NODE_URL: ${{ matrix.node.url }}
+          NODE_SHA256: ${{ matrix.node.sha256 }}
+        run: |
+          node_dir="$RUNNER_TEMP/bitcoin-node"
+          mkdir -p "$node_dir"
+          curl --fail --silent --show-error --location "$NODE_URL" --output "$node_dir/node.tar.gz"
+          echo "$NODE_SHA256  $node_dir/node.tar.gz" | sha256sum --check
+          tar -xzf "$node_dir/node.tar.gz" --strip-components=1 -C "$node_dir"
+          echo "BITCOIN_MCP_TEST_BITCOIND=$node_dir/bin/bitcoind" >> "$GITHUB_ENV"
+      - name: Exercise MCP tools over stdio
+        run: python -m pytest tests/integration/test_real_node.py -v --junitxml=real-node-results.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ matrix.node.id }}-results
+          path: real-node-results.xml
