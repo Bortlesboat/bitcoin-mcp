@@ -131,7 +131,7 @@ async def _call_tool(environment: dict[str, str], name: str, arguments: dict[str
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.call_tool(name, arguments)
-                assert not result.isError, f"MCP tool failed: {name}"
+                assert not result.is_error, f"MCP tool failed: {name}"
                 text = "".join(item.text for item in result.content if item.type == "text")
                 return json.loads(text)
 
