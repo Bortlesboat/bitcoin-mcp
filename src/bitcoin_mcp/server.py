@@ -10,8 +10,9 @@ import sys
 import urllib.request
 import urllib.error
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
+from bitcoin_mcp import __version__
 from bitcoin_mcp.address_validation import _validate_address_format
 from bitcoinlib_rpc import BitcoinRPC
 from bitcoinlib_rpc.blocks import analyze_block as _analyze_block
@@ -24,8 +25,9 @@ from bitcoinlib_rpc.utils import fee_recommendation
 
 logger = logging.getLogger("bitcoin-mcp")
 
-mcp = FastMCP(
+mcp = MCPServer(
     "bitcoin",
+    version=__version__,
     instructions=(
         "Query and analyze the Bitcoin network. "
         "Uses a local Bitcoin Core/Knots node or a compatible API configured with SATOSHI_API_URL. "
@@ -2140,8 +2142,6 @@ if _satoshi_api_url:
 
 
 def main():
-    from bitcoin_mcp import __version__
-
     parser = argparse.ArgumentParser(description="Bitcoin MCP Server")
     parser.add_argument("--version", action="version", version=f"bitcoin-mcp {__version__}")
     parser.add_argument("--check", action="store_true", help="Test RPC connection and exit")
@@ -2183,11 +2183,14 @@ def main():
     except Exception as e:
         logger.warning("Starting Bitcoin MCP server (connection will retry on first tool call: %s)", e)
 
-    if args.host:
-        mcp.settings.host = args.host
-    if args.port:
-        mcp.settings.port = args.port
-    mcp.run(transport=args.transport)
+    # mcp 2.x takes host/port on run() for HTTP transports only; stdio rejects them.
+    run_kwargs = {}
+    if args.transport != "stdio":
+        if args.host:
+            run_kwargs["host"] = args.host
+        if args.port:
+            run_kwargs["port"] = args.port
+    mcp.run(transport=args.transport, **run_kwargs)
 
 
 if __name__ == "__main__":
